@@ -5,7 +5,11 @@ description = "A 25-agent AI engineering platform with a multi-agent orchestrato
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Arunkumar" }]
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "structlog>=26.1.0",
+]
 
 [dependency-groups]
 dev = [
@@ -63,6 +67,11 @@ mypy_path = "src"
 packages = ["agentforge"]
 warn_unreachable = true
 pretty = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"

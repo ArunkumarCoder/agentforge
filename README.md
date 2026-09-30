@@ -1,387 +1,55 @@
 # AgentForge
 
-> 25 Practical AI Agents for Software Engineering, Business, Data & Automation.
+A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-AgentForge is an open-source AI agent engineering laboratory containing 25 specialized agents built around a shared runtime for tool use, memory, planning, evaluation, and multi-agent orchestration.
+> **Status:** Week 1 — architecture and foundation. Nothing runs yet except the smoke test.
 
-The goal is not simply to demonstrate 25 prompts.
-
-The project explores how practical AI agents can be designed, tested, evaluated, secured, and orchestrated into reliable software systems.
-
-## ✨ What is AgentForge?
-
-AgentForge contains 25 specialized AI agents covering:
-
-* Software engineering
-* Code analysis
-* Testing
-* Security
-* Data analysis
-* RAG
-* Research
-* Product management
-* Business analysis
-* SEO
-* DevOps
-* QA
-* GitHub automation
-* Multi-agent orchestration
-
-### Architecture
-
-```text
-                         User
-                          │
-                 ┌────────▼────────┐
-                 │ CLI / REST / UI │
-                 └────────┬────────┘
-                          │
-                 ┌────────▼────────┐
-                 │  Orchestrator   │
-                 └────────┬────────┘
-                          │
-             ┌────────────┼────────────┐
-             │            │            │
-             ▼            ▼            ▼
-          Agent A      Agent B      Agent C
-             │            │            │
-             └────────────┼────────────┘
-                          ▼
-                  ┌───────────────┐
-                  │ Agent Runtime │
-                  ├───────────────┤
-                  │ LLM           │
-                  │ Tools         │
-                  │ Memory        │
-                  │ Guardrails    │
-                  │ Evaluation    │
-                  └───────┬───────┘
-                          │
-                    Data / Tools
-```
-
-## 🤖 25 Agents
-
-### Software Engineering
-
-| #  | Agent           | Purpose                             |
-| -- | --------------- | ----------------------------------- |
-| 01 | Code Review     | Analyze source code                 |
-| 02 | Bug Analysis    | Diagnose bugs and errors            |
-| 03 | Test Generation | Generate automated tests            |
-| 04 | Documentation   | Generate technical documentation    |
-| 05 | Refactoring     | Identify and improve code structure |
-| 06 | API Design      | Design application APIs             |
-| 07 | Database        | Design and optimize databases       |
-| 08 | Security Audit  | Identify security risks             |
-| 09 | Dependency      | Analyze dependencies                |
-| 10 | Code Migration  | Plan and assist migrations          |
-
-### AI & Data
-
-| #  | Agent               | Purpose                                 |
-| -- | ------------------- | --------------------------------------- |
-| 11 | Research            | Research and synthesize information     |
-| 12 | Data Analysis       | Analyze structured datasets             |
-| 13 | Document Extraction | Extract structured information          |
-| 14 | RAG                 | Question answering over knowledge bases |
-| 15 | Prompt Optimization | Evaluate and improve prompts            |
-
-### Business
-
-| #  | Agent            | Purpose                                  |
-| -- | ---------------- | ---------------------------------------- |
-| 16 | Business Analyst | Convert requirements into specifications |
-| 17 | Project Planner  | Create implementation plans              |
-| 18 | Product Manager  | Generate product specifications          |
-| 19 | SEO              | Analyze and improve SEO                  |
-| 20 | Content          | Generate structured content              |
-
-### Automation
-
-| #  | Agent         | Purpose                            |
-| -- | ------------- | ---------------------------------- |
-| 21 | GitHub Issue  | Generate and manage GitHub issues  |
-| 22 | Release Notes | Generate release notes             |
-| 23 | DevOps        | Analyze CI/CD and deployment       |
-| 24 | QA            | Generate QA strategy and scenarios |
-| 25 | Orchestrator  | Coordinate multiple agents         |
-
-## 🧰 Technology
-
-* Python
-* FastAPI
-* Pydantic
-* LangGraph
-* LiteLLM
-* PostgreSQL
-* pgvector
-* Redis
-* Typer
-* pytest
-* Ruff
-* mypy
-* Docker
-* GitHub Actions
-* Next.js
-
-## 🚀 Quick Start
-
-### Requirements
-
-* Python 3.12+
-* uv
-* Docker
-* PostgreSQL
-* Redis
-* An API key for a supported LLM provider
-
-### Installation
+## Quick start (dev)
 
 ```bash
-git clone https://github.com/<your-username>/agentforge.git
-
-cd agentforge
-
-uv sync
+uv sync          # create .venv and install dev dependencies
+uv run pytest    # run the test suite
 ```
 
-Copy the environment configuration:
+## Configuration
 
-```bash
-cp .env.example .env
+Settings live in `src/agentforge/config.py` and are read from environment variables, then `.env.<env>`, then `.env`, then built-in defaults. Copy `.env.example` to `.env` to get started. Nested settings use a double underscore, e.g. `AGENTFORGE_LLM__MODEL`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `AGENTFORGE_ENV` | `dev` | Profile: `dev`, `test` or `prod`. Also loads `.env.<env>` |
+| `AGENTFORGE_LOGGING__LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `AGENTFORGE_LOGGING__FORMAT` | `console` | `console` (human-readable) or `json` (CI and production) |
+| `AGENTFORGE_LLM__PROVIDER` | `fake` | `anthropic`, `openai`, `ollama` or `fake` (offline) |
+| `AGENTFORGE_LLM__MODEL` | `fake-model` | Model name for the chosen provider |
+| `AGENTFORGE_LLM__TIMEOUT_S` | `60` | Request timeout in seconds (> 0) |
+| `AGENTFORGE_LLM__MAX_RETRIES` | `3` | Retries on transient errors (0–10) |
+| `AGENTFORGE_LLM__OLLAMA_BASE_URL` | `http://localhost:11434` | Local Ollama server |
+| `ANTHROPIC_API_KEY` | — | Anthropic key (`AGENTFORGE_ANTHROPIC_API_KEY` also works) |
+| `OPENAI_API_KEY` | — | OpenAI key (`AGENTFORGE_OPENAI_API_KEY` also works) |
+
+Logs go to stderr. Inside `run_context()`, every log line carries `run_id` and `correlation_id`, and secret-looking fields (`api_key`, `token`, `password`, `authorization`, …) are replaced with `***`.
+
+```python
+from agentforge.config import get_settings
+from agentforge.log import configure_logging, get_logger, run_context
+
+configure_logging(get_settings())
+log = get_logger(__name__)
+with run_context():
+    log.info("agent.started", agent="code-review")
 ```
 
-Start infrastructure:
+## Documentation
 
-```bash
-docker compose up -d
-```
+- [Architecture](docs/ARCHITECTURE.md)
+- [Agent catalog](docs/AGENTS.md)
+- [Architecture decision records](docs/adr/)
 
-Run the API:
+## Roadmap
 
-```bash
-uv run uvicorn api.main:app --reload
-```
-
-## 💻 CLI
-
-List available agents:
-
-```bash
-uv run agentforge list
-```
-
-Run code review:
-
-```bash
-uv run agentforge run code-review ./example-project
-```
-
-Run research:
-
-```bash
-uv run agentforge run research "Explain retrieval augmented generation"
-```
-
-Run the orchestrator:
-
-```bash
-uv run agentforge run orchestrator requirements.md
-```
-
-## 🔌 Agent Architecture
-
-Every agent follows a common contract:
-
-```text
-Input
-  ↓
-Context
-  ↓
-Planning
-  ↓
-Tool Selection
-  ↓
-LLM
-  ↓
-Validation
-  ↓
-Output
-  ↓
-Evaluation
-```
-
-This makes agents interchangeable and allows them to participate in larger workflows.
-
-## 🛠 Tool System
-
-Agents can use controlled tools including:
-
-* File system
-* Git
-* GitHub
-* Web search
-* Database
-* Vector search
-* Document processing
-* Shell commands
-* Browser automation
-
-Tools use permission boundaries to prevent agents from performing unauthorized operations.
-
-## 🧠 Memory
-
-AgentForge supports:
-
-### Short-term memory
-
-Execution-specific context.
-
-### Long-term memory
-
-Persistent agent information.
-
-### Vector memory
-
-Semantic retrieval using PostgreSQL and pgvector.
-
-## 🔀 Multi-Agent Orchestration
-
-Agent #25 is the Agent Orchestrator.
-
-Example:
-
-```text
-Business Requirement
-        │
-        ▼
-Business Analyst
-        │
-        ▼
-Product Manager
-        │
-        ▼
-Project Planner
-        │
-        ├──────────────┐
-        ▼              ▼
-    API Design      Database
-        │              │
-        └──────┬───────┘
-               ▼
-          Security Audit
-               │
-               ▼
-               QA
-               │
-               ▼
-          Documentation
-               │
-               ▼
-             Review
-               │
-               ▼
-             Result
-```
-
-The orchestrator does not blindly execute all agents.
-
-It determines which agents are relevant to the task.
-
-## 📊 Evaluation
-
-AgentForge treats evaluation as a first-class capability.
-
-Agents can be evaluated for:
-
-* Accuracy
-* Relevance
-* Completeness
-* Tool usage
-* Structured output validity
-* Hallucination
-* Latency
-* Token usage
-* Cost
-
-Evaluation datasets are stored under:
-
-```text
-evals/
-```
-
-## 🔐 Security
-
-AgentForge follows a permission-based tool model.
-
-Tools can require:
-
-* Read permission
-* Write permission
-* Execute permission
-* Network permission
-* Human approval
-
-Production-impacting operations should require explicit authorization.
-
-## 🧪 Testing
-
-Run tests:
-
-```bash
-uv run pytest
-```
-
-Run linting:
-
-```bash
-uv run ruff check .
-```
-
-Run type checking:
-
-```bash
-uv run mypy .
-```
-
-## 🗺 Roadmap
-
-* [x] Agent runtime architecture
-* [ ] First 5 agents
-* [ ] Engineering agents
-* [ ] AI/Data agents
-* [ ] Business agents
-* [ ] Automation agents
-* [ ] Multi-agent orchestrator
-* [ ] Evaluation framework
-* [ ] Web interface
-* [ ] Agent benchmark suite
-* [ ] Production deployment examples
-
-## 🎯 Project Goals
-
-AgentForge is intended to demonstrate practical AI engineering concepts including:
-
-* LLM integration
-* Tool calling
-* Structured outputs
-* Agent planning
-* Memory
-* RAG
-* Evaluation
-* Guardrails
-* Multi-agent systems
-* API design
-* Observability
-* Production-oriented architecture
-
-## 🤝 Contributing
-
-Contributions are welcome.
-
-Please read `CONTRIBUTING.md` before submitting a pull request.
-
-## 📄 License
-
-MIT License.
+| Milestone | Target | Scope |
+|---|---|---|
+| M1 — Portfolio MVP (v0.1.0) | 30 Oct 2026 | Core runtime, CLI, 10 engineering agents, evals, basic API |
+| M2 — Serious AI project (v0.2.0) | 27 Nov 2026 | Research, data, RAG, business and delivery agents (24 total) |
+| M3 — Flagship (v1.0.0) | 01 Jan 2027 | Orchestrator, memory, permissions, observability, dashboard, docs |
