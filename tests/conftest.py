@@ -2,12 +2,27 @@
 
 import io
 import json
+import os
 from typing import Any
 
 import pytest
 
 from agentforge.config import LogFormat, LoggingSettings, Settings
 from agentforge.log import configure_logging
+
+_PROVIDER_KEYS = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove AGENTFORGE_* and provider-key variables so tests behave the same everywhere.
+
+    Without this, a developer's shell or CI settings (e.g. AGENTFORGE_ENV=test)
+    would leak into tests that rely on defaults.
+    """
+    for name in list(os.environ):
+        if name.startswith("AGENTFORGE_") or name in _PROVIDER_KEYS:
+            monkeypatch.delenv(name, raising=False)
 
 
 class LogCapture:

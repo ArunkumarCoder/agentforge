@@ -1,14 +1,66 @@
 # AgentForge
 
+[![CI](https://github.com/ArunkumarCoder/agentforge/actions/workflows/ci.yml/badge.svg)](https://github.com/ArunkumarCoder/agentforge/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
+![Types: mypy strict](https://img.shields.io/badge/types-mypy%20strict-informational)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 1 — architecture and foundation. Nothing runs yet except the smoke test.
+> **Status:** Week 1 — foundation. Config, structured logging, core schemas and `BaseAgent` are in place; no LLM-backed agents yet.
 
 ## Quick start (dev)
 
+Requires [uv](https://docs.astral.sh/uv/). It installs Python 3.12 for you if needed.
+
 ```bash
-uv sync          # create .venv and install dev dependencies
-uv run pytest    # run the test suite
+uv sync                    # create .venv and install dependencies
+uv run pre-commit install  # run lint and type checks on every commit
+make check                 # lint + types + tests with coverage (what CI runs)
+```
+
+No `make`? See [CONTRIBUTING.md](CONTRIBUTING.md) for the plain `uv run` commands.
+
+## Your first agent
+
+```python
+from agentforge.core import AgentInput, AgentOutput, BaseAgent, RunContext
+
+
+class WordCountInput(AgentInput):
+    text: str
+
+
+class WordCountOutput(AgentOutput):
+    words: int
+
+
+class WordCountAgent(BaseAgent[WordCountInput, WordCountOutput]):
+    name = "word-count"
+    description = "Counts the words in a text."
+    input_model = WordCountInput
+    output_model = WordCountOutput
+
+    async def execute(self, data: WordCountInput, ctx: RunContext) -> WordCountOutput:
+        return WordCountOutput(words=len(data.text.split()))
+
+
+result = WordCountAgent().run({"text": "agents all the way down"})
+print(result.status, result.output)  # succeeded words=5
+```
+
+Every run returns a `RunResult`, which carries a status, the typed output or an error, usage and timing. Runs never raise, so callers handle success and failure the same way.
+
+## Project layout
+
+```
+src/agentforge/
+├── config.py        # settings (pydantic-settings)
+├── log.py           # structured logging (structlog)
+└── core/            # schemas, BaseAgent, errors
+tests/               # pytest suite (offline, no API keys needed)
+docs/                # architecture, agent catalog, ADRs
+.github/workflows/   # CI: lint, mypy, tests on Linux + Windows
 ```
 
 ## Configuration

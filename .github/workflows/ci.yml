@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel an older run of the same branch/PR when a new commit arrives.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_LOCKED: "1"            # fail if uv.lock is out of date with pyproject.toml
+  FORCE_COLOR: "1"
+  AGENTFORGE_ENV: test
+  AGENTFORGE_LOGGING__FORMAT: json
+
+jobs:
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Ruff format
+        run: uv run ruff format --check --diff .
+
+      - name: Ruff lint
+        run: uv run ruff check --output-format=github .
+
+      - name: Mypy (strict)
+        run: uv run mypy
+
+      - name: Pre-commit hooks (whitespace, YAML/TOML, secrets)
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: Tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.12", "3.13"]
+        include:
+          - os: windows-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml --junitxml=junit.xml
+
+      - name: Coverage summary
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        shell: bash
+        run: |
+          {
+            echo '### Coverage'
+            echo '```'
+            uv run coverage report
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            junit.xml
+          retention-days: 14

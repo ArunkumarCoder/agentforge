@@ -1,6 +1,5 @@
 """Tests for settings resolution and validation."""
 
-import os
 from pathlib import Path
 
 import pytest
@@ -17,11 +16,8 @@ from agentforge.config import (
 
 
 @pytest.fixture(autouse=True)
-def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Run each test in an empty folder with no AGENTFORGE_* or provider key variables."""
-    for name in list(os.environ):
-        if name.startswith("AGENTFORGE_") or name in {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}:
-            monkeypatch.delenv(name, raising=False)
+def isolated_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Run each test in an empty folder (no stray .env files); env vars are cleared in conftest."""
     monkeypatch.chdir(tmp_path)
     get_settings.cache_clear()
 
