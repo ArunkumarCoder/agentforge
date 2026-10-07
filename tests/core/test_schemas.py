@@ -50,6 +50,11 @@ class TestMessage:
         assert msg.role is Role.TOOL
         assert msg.tool_call_id == "call-1"
         assert msg.content == "data"
+        assert msg.is_error is False
+
+    def test_tool_error_is_carried_over(self) -> None:
+        result = ToolResult(tool_call_id="c", name="t", content="boom", is_error=True)
+        assert Message.tool(result).is_error is True
 
     def test_assistant_can_carry_tool_calls(self) -> None:
         call = ToolCall(id="call-1", name="read_file", arguments={"path": "a.py"})
@@ -64,6 +69,7 @@ class TestMessage:
             {"role": "user", "tool_calls": [{"id": "c1", "name": "t"}]},  # tool_calls on user
             {"role": "wizard", "content": "x"},  # unknown role
             {"role": "user", "content": "x", "extra": 1},  # unknown field
+            {"role": "assistant", "content": "x", "is_error": True},  # is_error on non-tool
         ],
     )
     def test_invalid_messages_are_rejected(self, fields: dict[str, object]) -> None:

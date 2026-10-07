@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install hooks fmt lint type test cov check clean
+.PHONY: help install hooks fmt lint type test test-live cov check clean
 
 help:  ## Show available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -23,6 +23,9 @@ type:  ## Type-check with mypy (strict)
 
 test:  ## Run tests
 	uv run pytest
+
+test-live:  ## Run live LLM smoke tests (needs API keys; costs a few cents at most)
+	uv run pytest -m llm -v
 
 cov:  ## Run tests with coverage report (fails under 80%)
 	uv run pytest --cov --cov-report=term-missing --cov-report=html

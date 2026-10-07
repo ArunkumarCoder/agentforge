@@ -54,13 +54,14 @@ class Message(Contract):
     content: str = ""
     tool_calls: list[ToolCall] = Field(default_factory=list)
     tool_call_id: str | None = None
+    is_error: bool = False  # tool messages only: the tool failed
 
     @model_validator(mode="after")
     def _check_role_fields(self) -> Self:
         if self.role is Role.TOOL and not self.tool_call_id:
             raise ValueError("tool messages need a tool_call_id")
-        if self.role is not Role.TOOL and self.tool_call_id:
-            raise ValueError("only tool messages may set tool_call_id")
+        if self.role is not Role.TOOL and (self.tool_call_id or self.is_error):
+            raise ValueError("only tool messages may set tool_call_id or is_error")
         if self.tool_calls and self.role is not Role.ASSISTANT:
             raise ValueError("only assistant messages may contain tool_calls")
         return self
@@ -79,7 +80,12 @@ class Message(Contract):
 
     @classmethod
     def tool(cls, result: ToolResult) -> Message:
-        return cls(role=Role.TOOL, content=result.content, tool_call_id=result.tool_call_id)
+        return cls(
+            role=Role.TOOL,
+            content=result.content,
+            tool_call_id=result.tool_call_id,
+            is_error=result.is_error,
+        )
 
 
 # --------------------------------------------------------------------------- usage

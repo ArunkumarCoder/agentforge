@@ -22,7 +22,13 @@ from structlog.typing import EventDict, Processor, WrappedLogger
 from agentforge.config import LogFormat, Settings
 
 REDACTED = "***"
-_SENSITIVE_PARTS = ("api_key", "apikey", "token", "secret", "password", "authorization")
+# Matched against the whole key (lower-cased, "-" -> "_"), so counters such as
+# "input_tokens" or "total_tokens" are NOT redacted, while "access_token" is.
+_SENSITIVE_KEYS = frozenset(
+    {"authorization", "cookie", "set_cookie", "password", "passwd", "secret", "token"}
+    | {"api_key", "apikey", "x_api_key"}
+)
+_SENSITIVE_SUFFIXES = ("_token", "_secret", "_password", "_api_key", "_apikey")
 
 
 def new_id() -> str:
@@ -38,10 +44,16 @@ def redact_secrets(_logger: WrappedLogger, _method: str, event_dict: EventDict) 
     return _redacted(event_dict)
 
 
+def is_sensitive_key(key: str) -> bool:
+    """True if a log field with this name may hold a credential."""
+    normalised = key.lower().replace("-", "_")
+    return normalised in _SENSITIVE_KEYS or normalised.endswith(_SENSITIVE_SUFFIXES)
+
+
 def _redacted(mapping: Mapping[str, Any]) -> dict[str, Any]:
     clean: dict[str, Any] = {}
     for key, value in mapping.items():
-        if any(part in str(key).lower() for part in _SENSITIVE_PARTS):
+        if is_sensitive_key(str(key)):
             clean[key] = REDACTED
         elif isinstance(value, Mapping):
             clean[key] = _redacted(value)

@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Arunkumar" }]
 dependencies = [
+    "anthropic>=1.11.0",
+    "openai>=3.22.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "structlog>=26.1.0",
@@ -13,6 +15,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.3.1",
     "pre-commit>=4.6.2",
     "pytest>=8",
@@ -30,12 +33,12 @@ packages = ["src/agentforge"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not llm'"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
   "integration: needs external services (DB, network)",
-  "llm: calls a real LLM provider (skipped in CI)",
+  "llm: calls a real LLM provider; deselected unless you pass -m llm",
 ]
 
 [tool.ruff]
@@ -58,7 +61,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]  # assert is fine in tests
+"tests/**" = ["S101", "S105", "S106", "S311"]  # asserts, fake secrets, seeded random
 
 [tool.ruff.format]
 quote-style = "double"

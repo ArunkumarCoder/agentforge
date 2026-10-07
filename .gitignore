@@ -17,3 +17,9 @@ build/
 .DS_Store
 .idea/
 .vscode/
+
+# LLM response cache (commit recorded fixtures from tests/fixtures/ instead)
+.cache/
+
+# Local AI assistant prompts (kept on disk, never committed)
+docs/prompts/

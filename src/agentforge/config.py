@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 from enum import StrEnum
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from pydantic import AliasChoices, BaseModel, Field, SecretStr, field_validator
@@ -42,6 +43,13 @@ class LLMProvider(StrEnum):
     FAKE = "fake"
 
 
+class LLMCacheMode(StrEnum):
+    OFF = "off"
+    MEMORY = "memory"
+    DISK = "disk"
+    REPLAY = "replay"
+
+
 class LoggingSettings(BaseModel):
     level: str = "INFO"
     format: LogFormat = LogFormat.CONSOLE
@@ -62,6 +70,8 @@ class LLMSettings(BaseModel):
     timeout_s: float = Field(default=60.0, gt=0)
     max_retries: int = Field(default=3, ge=0, le=10)
     ollama_base_url: str = "http://localhost:11434"
+    cache: LLMCacheMode = LLMCacheMode.OFF
+    cache_dir: Path = Path(".cache/llm")
 
 
 class Settings(BaseSettings):

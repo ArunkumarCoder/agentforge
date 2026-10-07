@@ -14,12 +14,15 @@ _PROVIDER_KEYS = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
 
 
 @pytest.fixture(autouse=True)
-def _hermetic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _hermetic_env(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Remove AGENTFORGE_* and provider-key variables so tests behave the same everywhere.
 
     Without this, a developer's shell or CI settings (e.g. AGENTFORGE_ENV=test)
-    would leak into tests that rely on defaults.
+    would leak into tests that rely on defaults. Live tests (marked ``llm``)
+    keep the environment because they need the real API keys.
     """
+    if request.node.get_closest_marker("llm"):
+        return
     for name in list(os.environ):
         if name.startswith("AGENTFORGE_") or name in _PROVIDER_KEYS:
             monkeypatch.delenv(name, raising=False)

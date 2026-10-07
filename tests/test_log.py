@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from agentforge.config import LogFormat, LoggingSettings, Settings
-from agentforge.log import configure_logging, get_logger, new_id, run_context
+from agentforge.log import configure_logging, get_logger, is_sensitive_key, new_id, run_context
 
 
 @pytest.fixture
@@ -128,3 +128,34 @@ def test_new_id_is_unique_hex() -> None:
     ids = {new_id() for _ in range(100)}
     assert len(ids) == 100
     assert all(len(i) == 16 and int(i, 16) >= 0 for i in ids)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "api_key",
+        "API-KEY",
+        "x-api-key",
+        "Authorization",
+        "password",
+        "access_token",
+        "client_secret",
+    ],
+)
+def test_sensitive_keys(key: str) -> None:
+    assert is_sensitive_key(key)
+
+
+@pytest.mark.parametrize(
+    "key", ["input_tokens", "output_tokens", "total_tokens", "max_tokens", "model", "tokenizer"]
+)
+def test_token_counters_are_not_redacted(key: str) -> None:
+    assert not is_sensitive_key(key)
+
+
+def test_usage_fields_survive_redaction(json_logs: io.StringIO) -> None:
+    get_logger().info("llm.response", input_tokens=12, output_tokens=7, access_token="abc")
+    (entry,) = lines(json_logs)
+    assert entry["input_tokens"] == 12
+    assert entry["output_tokens"] == 7
+    assert entry["access_token"] == "***"
