@@ -16,12 +16,12 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
-    "mypy>=2.3.1",
+    "mypy>=2.4.0",
     "pre-commit>=4.6.2",
     "pytest>=8",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=5",
-    "ruff>=0.16.9",
+    "ruff>=0.16.10",
 ]
 
 [build-system]
