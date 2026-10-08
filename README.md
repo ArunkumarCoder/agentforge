@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 2 — tools. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools and the tool-calling loop are in place; no production agents yet.
+> **Status:** Week 2 — tools. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
 
 ## Quick start (dev)
 
@@ -57,9 +57,11 @@ Every run returns a `RunResult`, which carries a status, the typed output or an 
 src/agentforge/
 ├── config.py        # settings (pydantic-settings)
 ├── log.py           # structured logging (structlog)
-├── core/            # schemas, BaseAgent, errors, tool-calling loop
+├── agents/          # the agents themselves (auto-discovered); echo for smoke tests
+├── core/            # schemas, BaseAgent, errors, tool-calling loop, agent registry
 ├── llm/             # LLMProvider, Anthropic/OpenAI/Ollama/Fake, retries, pricing, cache
-└── tools/           # BaseTool, @tool decorator, ToolRegistry, permissions
+└── tools/           # BaseTool, @tool, ToolRegistry, permissions
+    └── builtin/     # read_file, list_files, search_text, git_diff, run_command, http_fetch
 tests/               # pytest suite (offline, no API keys needed)
 tests/live/          # opt-in smoke tests against real APIs (make test-live)
 docs/                # architecture, agent catalog, ADRs
@@ -147,6 +149,30 @@ class WeatherAgent(BaseAgent[Question, Answer]):
 - **Tools never crash the run:** bad arguments, unknown tools, timeouts and exceptions all go back to the model as error results, so it can correct itself. Internal exception details are logged but never shown to the model.
 - **Permissions:** each tool declares `read`, `write`, `network` or `exec`. The loop allows only `read` unless you pass `allowed=...`.
 - **Guards:** `max_steps` caps the number of LLM calls (`ToolLoopLimitError` beyond it), each tool has a timeout, and long outputs are truncated. Token usage and cost from every step are added to the run.
+
+### Built-in tools
+
+| Tool | Permission | What it does | Safety |
+|---|---|---|---|
+| `read_file` | read | Numbered lines with paging | Workspace only; no `.env`, keys, `.git/`, binaries, >1 MB |
+| `list_files` | read | Glob listing | Skips `.venv`, `node_modules`, caches and secrets |
+| `search_text` | read | `path:line: text` matches, text or regex | Same rules as `list_files` |
+| `git_diff` | read | Diff against a ref, staged or not, limited to paths | Ref validated (no option injection), no shell |
+| `run_command` | exec | Runs **developer-approved** commands only | Model chooses a name, never the program; arguments validated; timeout; output tail |
+| `http_fetch` | network | Web page as text | Blocks localhost, private, link-local and metadata IPs, including after redirects; size cap; optional host allow-list |
+
+```python
+from agentforge.tools.builtin import Workspace, workspace_tools
+
+tools = workspace_tools(
+    Workspace("."),
+    commands={"pytest": ["uv", "run", "pytest", "-q"], "ruff": ["uv", "run", "ruff", "check"]},
+)
+```
+
+### Agent registry
+
+Agents decorate their class with `@register_agent`. `registry.discover()` imports everything under `agentforge.agents`, after which `registry.get("echo")`, `registry.create(...)` and `registry.cards()` work by name. The CLI (next) and the orchestrator build on this.
 
 ## Configuration
 
