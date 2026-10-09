@@ -1,0 +1,26 @@
+{
+  "name": "sql_injection",
+  "description": "A new search function builds SQL with an f-string from user input.",
+  "input": {
+    "diff": "diff --git a/app/db.py b/app/db.py\n--- a/app/db.py\n+++ b/app/db.py\n@@ -9,3 +9,9 @@\n     conn = get_connection()\n     row = conn.execute(\"SELECT id, name FROM users WHERE id = ?\", (user_id,)).fetchone()\n     return row\n+\n+\n+def search_users(name: str):\n+    conn = get_connection()\n+    query = f\"SELECT id, name FROM users WHERE name LIKE '%{name}%'\"\n+    return conn.execute(query).fetchall()\n"
+  },
+  "expect": {
+    "verdict_in": [
+      "request_changes"
+    ],
+    "must_find": [
+      {
+        "file": "app/db.py",
+        "categories": [
+          "security"
+        ],
+        "min_severity": "major",
+        "keywords_any": [
+          "sql",
+          "inject"
+        ],
+        "near_line": 16
+      }
+    ]
+  }
+}

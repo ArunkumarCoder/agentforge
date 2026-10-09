@@ -1,0 +1,16 @@
+{
+  "name": "clean_refactor",
+  "description": "Type hints, a docstring and a clearer range check; behaviour is unchanged.",
+  "input": {
+    "diff": "diff --git a/net/ports.py b/net/ports.py\n--- a/net/ports.py\n+++ b/net/ports.py\n@@ -1,5 +1,10 @@\n-def parse_port(value):\n+def parse_port(value: str) -> int:\n+    \"\"\"Parse a TCP port number and check that it is in the valid range.\n+\n+    Raises:\n+        ValueError: if the value is not an integer between 1 and 65535.\n+    \"\"\"\n     port = int(value)\n-    if port < 1 or port > 65535:\n-        raise ValueError(\"port out of range\")\n+    if not 1 <= port <= 65535:\n+        raise ValueError(f\"port out of range: {port}\")\n     return port\n"
+  },
+  "expect": {
+    "verdict_in": [
+      "approve",
+      "comment"
+    ],
+    "must_find": [],
+    "max_severity": "minor",
+    "max_findings": 3
+  }
+}

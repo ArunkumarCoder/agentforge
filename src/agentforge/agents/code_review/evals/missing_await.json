@@ -1,0 +1,27 @@
+{
+  "name": "missing_await",
+  "description": "An async helper is called without await, so it never runs.",
+  "input": {
+    "diff": "diff --git a/app/jobs.py b/app/jobs.py\n--- a/app/jobs.py\n+++ b/app/jobs.py\n@@ -8,6 +8,12 @@\n     return {\"user\": user_id, \"status\": \"ok\"}\n \n \n+async def notify(user_id: int) -> None:\n+    await asyncio.sleep(0)\n+\n+\n async def handle(user_id: int) -> str:\n     report = await build_report(user_id)\n+    save_report(user_id, report)\n+    notify(user_id)\n     return report[\"status\"]\n"
+  },
+  "expect": {
+    "verdict_in": [
+      "request_changes"
+    ],
+    "must_find": [
+      {
+        "file": "app/jobs.py",
+        "categories": [
+          "bug"
+        ],
+        "min_severity": "major",
+        "keywords_any": [
+          "await",
+          "coroutine",
+          "never runs",
+          "not awaited"
+        ]
+      }
+    ]
+  }
+}

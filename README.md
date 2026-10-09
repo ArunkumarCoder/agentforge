@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 2 complete (v0.0.1). Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
+> **Status:** Week 3. The first real agent, **Code Review**, is in; four more engineering agents follow this week. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
 
 ## Quick start (dev)
 
@@ -36,6 +36,21 @@ uv run agentforge -v ...                                    # show info logs (qu
 Results go to stdout and logs to stderr, so `--json` output can be piped into `jq`. Exit codes: `0` success, `1` the run failed, `2` bad input or usage. `python -m agentforge` works too.
 
 On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put it in a file and use `-i input.json`.
+
+## Agents
+
+| # | Agent | Name | What it does |
+|---|---|---|---|
+| 1 | Code Review | `code-review` | Reviews a diff, or a repo's uncommitted changes, and returns prioritised findings (severity, category, file:line, fix) and a verdict |
+
+```bash
+# review your own uncommitted changes (needs a real provider in .env)
+uv run agentforge agents run code-review -d '{"repo_path": ".", "base": "HEAD"}'
+```
+
+The Code Review agent only trusts what it can check. Findings on files that aren't in the diff are dropped, line numbers outside the changed hunks are cleared, and the verdict always follows from the findings: any `critical` or `major` finding means `request_changes`. It ships with 5 golden eval cases (SQL injection, off-by-one, hardcoded secret, missing `await`, and a clean refactor), which `make test-live` scores against your configured model.
+
+See [docs/AGENT_TEMPLATE.md](docs/AGENT_TEMPLATE.md) for how to write a new agent.
 
 ## Your first agent
 

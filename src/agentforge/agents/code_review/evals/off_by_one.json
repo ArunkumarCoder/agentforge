@@ -1,0 +1,29 @@
+{
+  "name": "off_by_one",
+  "description": "A refactor of total() skips the last item.",
+  "input": {
+    "diff": "diff --git a/shop/cart.py b/shop/cart.py\n--- a/shop/cart.py\n+++ b/shop/cart.py\n@@ -10,6 +10,6 @@\n def total(items: list[Item]) -> float:\n     \"\"\"Sum of all item prices.\"\"\"\n     result = 0.0\n-    for item in items:\n-        result += item.price\n-    return result\n+    for i in range(len(items) - 1):\n+        result += items[i].price\n+    return round(result, 2)\n"
+  },
+  "expect": {
+    "verdict_in": [
+      "request_changes"
+    ],
+    "must_find": [
+      {
+        "file": "shop/cart.py",
+        "categories": [
+          "bug"
+        ],
+        "min_severity": "major",
+        "keywords_any": [
+          "last",
+          "skip",
+          "off-by-one",
+          "off by one",
+          "range"
+        ],
+        "near_line": 13
+      }
+    ]
+  }
+}

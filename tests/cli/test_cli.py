@@ -115,7 +115,7 @@ class TestRun:
     def test_unknown_agent(self) -> None:
         result = runner.invoke(app, ["agents", "run", "nope"])
         assert result.exit_code == EXIT_USAGE
-        assert "available: echo" in result.stderr
+        assert "available: code-review, echo" in result.stderr
 
     def test_default_input_is_empty_object(self) -> None:
         result = runner.invoke(app, ["agents", "run", "echo"])
