@@ -3,9 +3,11 @@
 import io
 import json
 import os
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
+import structlog
 
 from agentforge.config import LogFormat, LoggingSettings, Settings
 from agentforge.log import configure_logging
@@ -26,6 +28,15 @@ def _hermetic_env(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatc
     for name in list(os.environ):
         if name.startswith("AGENTFORGE_") or name in _PROVIDER_KEYS:
             monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_logging() -> Iterator[None]:
+    """Undo any logging configuration a test made (e.g. the CLI writing to a captured,
+    since-closed stream) so later tests never log into a dead file."""
+    yield
+    structlog.reset_defaults()
+    structlog.contextvars.clear_contextvars()
 
 
 class LogCapture:

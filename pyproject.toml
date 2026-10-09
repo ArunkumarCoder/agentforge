@@ -11,8 +11,13 @@ dependencies = [
     "openai>=3.22.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "rich>=15.0.0",
     "structlog>=26.1.0",
+    "typer>=0.27.3",
 ]
+
+[project.scripts]
+agentforge = "agentforge.cli.main:app"
 
 [dependency-groups]
 dev = [
@@ -86,6 +91,7 @@ disallow_untyped_defs = false
 [tool.coverage.run]
 source = ["agentforge"]
 branch = true
+omit = ["*/__main__.py"]  # exercised via `python -m agentforge` in a subprocess
 
 [tool.coverage.report]
 show_missing = true

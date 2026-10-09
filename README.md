@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 2 — tools. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
+> **Status:** Week 2 complete (v0.0.1). Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
 
 ## Quick start (dev)
 
@@ -20,6 +20,22 @@ make check                 # lint + types + tests with coverage (what CI runs)
 ```
 
 No `make`? See [CONTRIBUTING.md](CONTRIBUTING.md) for the plain `uv run` commands.
+
+## Command line
+
+```bash
+uv run agentforge agents list                               # what's available
+uv run agentforge agents show echo                          # description + input/output schema
+uv run agentforge agents run echo -d '{"text": "hi"}'       # run once (pretty output)
+uv run agentforge agents run echo -i input.json --json      # full RunResult as JSON (also: -i - for stdin)
+uv run agentforge llm ping                                  # check provider, key, tokens and cost
+uv run agentforge config show                               # effective settings (keys shown as set/not set)
+uv run agentforge -v ...                                    # show info logs (quiet by default)
+```
+
+Results go to stdout and logs to stderr, so `--json` output can be piped into `jq`. Exit codes: `0` success, `1` the run failed, `2` bad input or usage. `python -m agentforge` works too.
+
+On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put it in a file and use `-i input.json`.
 
 ## Your first agent
 
@@ -58,6 +74,7 @@ src/agentforge/
 ├── config.py        # settings (pydantic-settings)
 ├── log.py           # structured logging (structlog)
 ├── agents/          # the agents themselves (auto-discovered); echo for smoke tests
+├── cli/             # `agentforge` command (Typer + Rich)
 ├── core/            # schemas, BaseAgent, errors, tool-calling loop, agent registry
 ├── llm/             # LLMProvider, Anthropic/OpenAI/Ollama/Fake, retries, pricing, cache
 └── tools/           # BaseTool, @tool, ToolRegistry, permissions
