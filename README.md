@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 3. The first real agent, **Code Review**, is in; four more engineering agents follow this week. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
+> **Status:** Week 3. Two real agents, **Code Review** and **Bug Fix**, are in; three more engineering agents follow this week. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
 
 ## Quick start (dev)
 
@@ -42,13 +42,19 @@ On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put i
 | # | Agent | Name | What it does |
 |---|---|---|---|
 | 1 | Code Review | `code-review` | Reviews a diff, or a repo's uncommitted changes, and returns prioritised findings (severity, category, file:line, fix) and a verdict |
+| 2 | Bug Fix | `bug-fix` | Takes an error (traceback) plus the files or a repo path, and returns the root cause, a confidence level and a unified-diff patch that is checked to apply |
 
 ```bash
 # review your own uncommitted changes (needs a real provider in .env)
 uv run agentforge agents run code-review -d '{"repo_path": ".", "base": "HEAD"}'
+
+# diagnose an error in this repo (put the traceback in error.json: {"error": "...", "repo_path": "."})
+uv run agentforge agents run bug-fix -i error.json
 ```
 
 The Code Review agent only trusts what it can check. Findings on files that aren't in the diff are dropped, line numbers outside the changed hunks are cleared, and the verdict always follows from the findings: any `critical` or `major` finding means `request_changes`. It ships with 5 golden eval cases (SQL injection, off-by-one, hardcoded secret, missing `await`, and a clean refactor), which `make test-live` scores against your configured model.
+
+The Bug Fix agent never hands back a patch it hasn't tried. Its patch is applied in memory to the real files (nothing is written to disk); if it doesn't apply, or changes nothing, the model gets the exact mismatch back and one chance to fix it, and `patch_applies` in the output tells you the result. Its 5 golden cases (division by zero, missing defaults, `None` from `re.match`, an off-by-one index and a `str` + `int` concatenation) are scored by applying the patch and running a small behaviour check in a separate Python process.
 
 See [docs/AGENT_TEMPLATE.md](docs/AGENT_TEMPLATE.md) for how to write a new agent.
 

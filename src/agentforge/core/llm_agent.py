@@ -17,9 +17,10 @@ An agent package looks like this::
 2. Builds the user message (``build_user_message``) and the tools for this
    input (``build_tools``).
 3. Runs the tool-calling loop.
-4. Parses the final answer into the output model. If it is invalid, the
-   errors are sent back **once** so the model can fix them; a second failure
-   becomes an ``output_validation`` error on the run.
+4. Parses the final answer into the output model and runs ``check`` (for
+   things the schema can't express, such as "the patch applies"). If either
+   fails, the problem is sent back **once** so the model can fix it; a second
+   failure becomes an ``output_validation`` error on the run.
 5. Lets the subclass clean up the result (``postprocess``).
 """
 
@@ -78,6 +79,13 @@ class LLMAgent[InT: AgentInput, OutT: AgentOutput](BaseAgent[InT, OutT]):
         """Extra values for ``{{placeholders}}`` in prompt.md."""
         return {}
 
+    def check(self, output: OutT, data: InT, ctx: RunContext) -> None:
+        """Verify the output against reality (e.g. "does the patch apply?").
+
+        Raise ``OutputCheckError`` with a clear message to send the model back for
+        one repair, exactly like a schema error.
+        """
+
     def postprocess(self, output: OutT, data: InT, ctx: RunContext) -> OutT:
         """Adjust or check the parsed output (e.g. sort, drop invalid items)."""
         return output
@@ -112,14 +120,19 @@ class LLMAgent[InT: AgentInput, OutT: AgentOutput](BaseAgent[InT, OutT]):
         )
         ctx.metadata.update(steps=result.steps, tool_calls=result.tool_calls)
         try:
-            output = parse_model_output(result.text, self.output_model)
+            output = self._parse_and_check(result.text, data, ctx)
         except OutputParseError as first:
             ctx.log.warning("agent.output.repair", error_message=str(first))
-            output = await self._repair(result.messages, first, ctx)
+            output = await self._repair(result.messages, first, data, ctx)
         return self.postprocess(output, data, ctx)
 
+    def _parse_and_check(self, text: str, data: InT, ctx: RunContext) -> OutT:
+        output = parse_model_output(text, self.output_model)
+        self.check(output, data, ctx)
+        return output
+
     async def _repair(
-        self, transcript: list[Message], error: OutputParseError, ctx: RunContext
+        self, transcript: list[Message], error: OutputParseError, data: InT, ctx: RunContext
     ) -> OutT:
         messages = [*transcript, Message.user(REPAIR_MESSAGE.format(error=error))]
         response = await self.llm.complete(
@@ -127,7 +140,7 @@ class LLMAgent[InT: AgentInput, OutT: AgentOutput](BaseAgent[InT, OutT]):
         )
         ctx.add_usage(response.usage)
         try:
-            return parse_model_output(response.text, self.output_model)
+            return self._parse_and_check(response.text, data, ctx)
         except OutputParseError as second:
             raise AgentOutputError(f"invalid output after one repair attempt: {second}") from second
 

@@ -1,0 +1,23 @@
+{
+  "name": "index_error",
+  "description": "Off-by-one: the loop runs one index past the end of the list.",
+  "input": {
+    "error": "Traceback (most recent call last):\n  File \"main.py\", line 2, in <module>\n    last_n(['a', 'b', 'c'], 2)\n  File \"feed/recent.py\", line 8, in last_n\n    result.append(items[i])\n                  ~~~~~^^^\nIndexError: list index out of range\n",
+    "description": "Showing the latest events in the activity feed crashes.",
+    "files": {
+      "feed/recent.py": "\"\"\"Helpers for the activity feed.\"\"\"\n\n\ndef last_n(items: list[str], n: int) -> list[str]:\n    \"\"\"Return the last ``n`` items, oldest first.\"\"\"\n    result = []\n    for i in range(max(len(items) - n, 0), len(items) + 1):\n        result.append(items[i])\n    return result\n"
+    }
+  },
+  "expect": {
+    "file": "feed/recent.py",
+    "keywords_any": [
+      "off-by-one",
+      "off by one",
+      "range",
+      "len(items)",
+      "past the end",
+      "out of range"
+    ],
+    "check": "from feed.recent import last_n\nassert last_n([\"a\", \"b\", \"c\"], 2) == [\"b\", \"c\"]\nassert last_n([\"a\", \"b\", \"c\"], 3) == [\"a\", \"b\", \"c\"]\nassert last_n([\"a\", \"b\", \"c\"], 5) == [\"a\", \"b\", \"c\"]\nassert last_n([], 2) == []\n"
+  }
+}

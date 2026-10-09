@@ -11,6 +11,7 @@ from agentforge.core import (
     ToolCall,
 )
 from agentforge.core.llm_agent import LLMAgent
+from agentforge.core.structured import OutputCheckError
 from agentforge.llm import FakeProvider, LLMRequest
 from agentforge.tools import ToolRegistry, tool
 
@@ -89,6 +90,27 @@ async def test_second_failure_is_an_output_validation_error() -> None:
     assert result.error is not None
     assert result.error.kind is ErrorKind.OUTPUT_VALIDATION
     assert "after one repair attempt" in result.error.message
+
+
+class ThreeLineHaikuAgent(HaikuAgent):
+    def check(self, output: Haiku, data: Topic, ctx: RunContext) -> None:
+        if len(output.lines) != 3:
+            raise OutputCheckError(f"A haiku has 3 lines, not {len(output.lines)}.")
+
+
+async def test_check_failure_triggers_the_repair() -> None:
+    llm = FakeProvider(script=['{"lines": ["just one"]}', VALID])
+    result = await ThreeLineHaikuAgent(llm).arun({"topic": "frogs"})
+    assert result.ok
+    assert "A haiku has 3 lines, not 1." in llm.requests[1].messages[-1].content
+
+
+async def test_check_failure_twice_is_an_output_validation_error() -> None:
+    llm = FakeProvider(script=['{"lines": ["one"]}', '{"lines": ["one", "two"]}'])
+    result = await ThreeLineHaikuAgent(llm).arun({"topic": "frogs"})
+    assert result.error is not None
+    assert result.error.kind is ErrorKind.OUTPUT_VALIDATION
+    assert "not 2" in result.error.message
 
 
 async def test_unknown_placeholder_is_a_definition_error() -> None:

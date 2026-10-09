@@ -1,0 +1,20 @@
+{
+  "name": "zero_division",
+  "description": "Average of an empty list: the summary crashes on days with no orders.",
+  "input": {
+    "error": "Traceback (most recent call last):\n  File \"main.py\", line 2, in <module>\n    summary([])\n  File \"stats/metrics.py\", line 9, in summary\n    return {\"count\": len(values), \"total\": sum(values), \"average\": average(values)}\n                                                                   ^^^^^^^^^^^^^^^\n  File \"stats/metrics.py\", line 5, in average\n    return sum(values) / len(values)\n           ~~~~~~~~~~~~^~~~~~~~~~~~~\nZeroDivisionError: division by zero\n",
+    "description": "The daily dashboard crashes on days with no orders. An empty day should show an average of 0.",
+    "files": {
+      "stats/metrics.py": "\"\"\"Order statistics for the daily dashboard.\"\"\"\n\n\ndef average(values: list[float]) -> float:\n    return sum(values) / len(values)\n\n\ndef summary(values: list[float]) -> dict[str, float]:\n    return {\"count\": len(values), \"total\": sum(values), \"average\": average(values)}\n"
+    }
+  },
+  "expect": {
+    "file": "stats/metrics.py",
+    "keywords_any": [
+      "empty",
+      "zero",
+      "len"
+    ],
+    "check": "from stats.metrics import average, summary\nassert summary([])[\"average\"] == 0, summary([])\nassert summary([])[\"count\"] == 0\nassert average([2.0, 4.0]) == 3.0\nassert summary([1.0, 2.0, 3.0]) == {\"count\": 3, \"total\": 6.0, \"average\": 2.0}\n"
+  }
+}

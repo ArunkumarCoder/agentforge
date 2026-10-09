@@ -1,0 +1,21 @@
+{
+  "name": "type_error",
+  "description": "An int is concatenated to a str when formatting an invoice line.",
+  "input": {
+    "error": "Traceback (most recent call last):\n  File \"main.py\", line 2, in <module>\n    invoice([('Pen', 3, 1.5)])\n  File \"billing/invoice.py\", line 10, in invoice\n    return \"\\n\".join(order_line(*line) for line in lines)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"billing/invoice.py\", line 10, in <genexpr>\n    return \"\\n\".join(order_line(*line) for line in lines)\n                     ^^^^^^^^^^^^^^^^^\n  File \"billing/invoice.py\", line 6, in order_line\n    return name + \": \" + quantity + \" x \" + f\"{unit_price:.2f}\" + \" = \" + f\"{total:.2f}\"\n           ~~~~~~~~~~~~^~~~~~~~~~\nTypeError: can only concatenate str (not \"int\") to str\n",
+    "description": "Generating an invoice fails for every order.",
+    "files": {
+      "billing/invoice.py": "\"\"\"Plain-text invoice lines.\"\"\"\n\n\ndef order_line(name: str, quantity: int, unit_price: float) -> str:\n    total = quantity * unit_price\n    return name + \": \" + quantity + \" x \" + f\"{unit_price:.2f}\" + \" = \" + f\"{total:.2f}\"\n\n\ndef invoice(lines: list[tuple[str, int, float]]) -> str:\n    return \"\\n\".join(order_line(*line) for line in lines)\n"
+    }
+  },
+  "expect": {
+    "file": "billing/invoice.py",
+    "keywords_any": [
+      "str",
+      "int",
+      "concatenat",
+      "type"
+    ],
+    "check": "from billing.invoice import invoice, order_line\nassert order_line(\"Pen\", 3, 1.5) == \"Pen: 3 x 1.50 = 4.50\", order_line(\"Pen\", 3, 1.5)\nassert invoice([(\"Pen\", 3, 1.5), (\"Pad\", 1, 2.0)]) == \"Pen: 3 x 1.50 = 4.50\\nPad: 1 x 2.00 = 2.00\"\n"
+  }
+}

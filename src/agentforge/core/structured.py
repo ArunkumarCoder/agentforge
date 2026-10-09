@@ -28,6 +28,13 @@ class OutputParseError(AgentForgeError):
         self.raw = raw
 
 
+class OutputCheckError(OutputParseError):
+    """The output is well-formed but wrong (e.g. a patch that does not apply)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, raw="")
+
+
 def extract_json(text: str) -> Any:
     """Find and decode the JSON object in a model reply.
 
