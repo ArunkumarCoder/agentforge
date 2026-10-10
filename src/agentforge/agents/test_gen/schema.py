@@ -8,7 +8,16 @@ from typing import Self
 
 from pydantic import Field, field_validator, model_validator
 
-from agentforge.core.schemas import AgentInput, AgentOutput, Contract
+from agentforge.core.schemas import AgentInput, AgentOutput
+from agentforge.tools.pytest_runner import PytestRun
+
+__all__ = [
+    "GenerateTestsInput",
+    "GenerateTestsOutput",
+    "PytestRun",
+    "import_name",
+    "is_test_file",
+]
 
 TEST_FILE = re.compile(r"^(?:[\w-]+/)*test_\w+\.py$")
 
@@ -64,19 +73,6 @@ class GenerateTestsInput(AgentInput):
         if self.files and self.target not in self.files:
             raise ValueError(f"target '{self.target}' is not in files")
         return self
-
-
-class PytestRun(Contract):
-    """What happened when AgentForge ran the generated tests."""
-
-    passed: bool
-    tests: int = Field(ge=0)
-    failures: int = Field(ge=0, description="Failed tests plus errors")
-    skipped: int = Field(ge=0)
-    coverage: float | None = Field(
-        default=None, description="Percent of the target's statements run by the tests"
-    )
-    output: str = Field(default="", description="The end of pytest's output")
 
 
 class GenerateTestsOutput(AgentOutput):

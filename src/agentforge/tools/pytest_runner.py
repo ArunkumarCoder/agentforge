@@ -1,6 +1,7 @@
-"""Run pytest on generated tests in a scratch directory and measure coverage of one file.
+"""Run pytest on model-written code in a scratch directory and measure coverage of one file.
 
-The tests are written by a model, so they run with some care, though this is
+Used by the Test Generation agent (generated tests) and the Documentation agent
+(doctests). The code is written by a model, so they run with some care, though this is
 not a sandbox (containers come later):
 
 - a fresh temporary directory; nothing is written to the user's project,
@@ -26,8 +27,24 @@ import xml.etree.ElementTree as ET
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from agentforge.agents.test_gen.schema import PytestRun
+from pydantic import Field
+
+from agentforge.core.schemas import Contract
 from agentforge.tools.builtin.process import run_process
+
+
+class PytestRun(Contract):
+    """What happened when AgentForge ran the generated tests."""
+
+    passed: bool
+    tests: int = Field(ge=0)
+    failures: int = Field(ge=0, description="Failed tests plus errors")
+    skipped: int = Field(ge=0)
+    coverage: float | None = Field(
+        default=None, description="Percent of the target's statements run by the tests"
+    )
+    output: str = Field(default="", description="The end of pytest's output")
+
 
 DEFAULT_TIMEOUT_S = 60.0
 MAX_OUTPUT_CHARS = 6_000
@@ -115,13 +132,15 @@ async def run_pytest(
     tests: Sequence[str],
     measure: str | Path | None,
     extra_paths: Sequence[str | Path] = (),
+    args: Sequence[str] = (),
     timeout_s: float = DEFAULT_TIMEOUT_S,
 ) -> PytestRun:
     """Write ``files`` to a temp project, run the ``tests`` among them, report the outcome.
 
     ``measure`` is the file whose coverage is reported: a path relative to the
     temp project, or an absolute path (for a module in a repository that is
-    importable through ``extra_paths``).
+    importable through ``extra_paths``). ``args`` are extra pytest options,
+    e.g. ``--doctest-modules`` to run the examples in a module's docstrings.
     """
     with tempfile.TemporaryDirectory(prefix="agentforge-tests-") as tmp:
         base = Path(tmp)
@@ -156,6 +175,7 @@ async def run_pytest(
             "--rootdir",
             str(project),
             f"--junitxml={report}",
+            *args,
         ]
         script = scratch / "bootstrap.py"
         script.write_text(

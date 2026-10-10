@@ -1,0 +1,19 @@
+{
+  "name": "temperature",
+  "description": "Plain functions, one of which parses text and raises ValueError.",
+  "input": {
+    "target": "units/temperature.py",
+    "files": {
+      "units/temperature.py": "import re\n\n_READING = re.compile(r\"^\\s*(-?\\d+(?:\\.\\d+)?)\\s*([CF])\\s*$\", re.IGNORECASE)\n\n\ndef celsius_to_fahrenheit(celsius: float) -> float:\n    return celsius * 9 / 5 + 32\n\n\ndef fahrenheit_to_celsius(fahrenheit: float) -> float:\n    return (fahrenheit - 32) * 5 / 9\n\n\ndef parse_temperature(text: str) -> float:\n    match = _READING.match(text)\n    if match is None:\n        raise ValueError(f\"not a temperature: {text!r}\")\n    value, unit = float(match.group(1)), match.group(2).upper()\n    return value if unit == \"C\" else fahrenheit_to_celsius(value)\n"
+    },
+    "style": "google"
+  },
+  "expect": {
+    "must_mention": {
+      "parse_temperature": [
+        "Celsius",
+        "ValueError"
+      ]
+    }
+  }
+}

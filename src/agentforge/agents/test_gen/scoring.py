@@ -27,10 +27,10 @@ from typing import Any
 
 from pydantic import Field
 
-from agentforge.agents.test_gen.runner import run_pytest
 from agentforge.agents.test_gen.schema import GenerateTestsInput, GenerateTestsOutput, is_test_file
 from agentforge.core.schemas import Contract
 from agentforge.tools.patching import apply_patch
+from agentforge.tools.pytest_runner import run_pytest
 
 
 class Mutant(Contract):

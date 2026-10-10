@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 3. Three real agents, **Code Review**, **Bug Fix** and **Test Generation**, are in; Documentation and Refactoring follow this week. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
+> **Status:** Week 3. Four real agents, **Code Review**, **Bug Fix**, **Test Generation** and **Documentation**, are in. **Refactoring** has its smell detector today; the agent and a minimal eval runner follow tomorrow. Config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry are in place; the first real agents arrive in week 3.
 
 ## Quick start (dev)
 
@@ -44,6 +44,7 @@ On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put i
 | 1 | Code Review | `code-review` | Reviews a diff, or a repo's uncommitted changes, and returns prioritised findings (severity, category, file:line, fix) and a verdict |
 | 2 | Bug Fix | `bug-fix` | Takes an error (traceback) plus the files or a repo path, and returns the root cause, a confidence level and a unified-diff patch that is checked to apply |
 | 3 | Test Generation | `test-gen` | Writes a pytest file for a module, runs it, feeds failures back until the tests pass, and reports coverage before and after |
+| 4 | Documentation | `doc-gen` | Writes docstrings (Google, NumPy or Sphinx style) and a usage guide for a module, without changing any code; runs the `>>>` examples |
 
 ```bash
 # review your own uncommitted changes (needs a real provider in .env)
@@ -54,6 +55,9 @@ uv run agentforge agents run bug-fix -i error.json
 
 # write tests for one module of this repo (tests are run in a temp dir; nothing is written here)
 uv run agentforge agents run test-gen -d '{"repo_path": ".", "target": "src/agentforge/tools/patching.py"}'
+
+# document a module (prints the documented source; your file is not changed)
+uv run agentforge agents run doc-gen -d '{"repo_path": ".", "target": "src/agentforge/tools/patching.py", "readme": false}'
 ```
 
 The Code Review agent only trusts what it can check. Findings on files that aren't in the diff are dropped, line numbers outside the changed hunks are cleared, and the verdict always follows from the findings: any `critical` or `major` finding means `request_changes`. It ships with 5 golden eval cases (SQL injection, off-by-one, hardcoded secret, missing `await`, and a clean refactor), which `make test-live` scores against your configured model.
@@ -61,6 +65,8 @@ The Code Review agent only trusts what it can check. Findings on files that aren
 The Bug Fix agent never hands back a patch it hasn't tried. Its patch is applied in memory to the real files (nothing is written to disk); if it doesn't apply, or changes nothing, the model gets the exact mismatch back and one chance to fix it, and `patch_applies` in the output tells you the result. Its 5 golden cases (division by zero, missing defaults, `None` from `re.match`, an off-by-one index and a `str` + `int` concatenation) are scored by applying the patch and running a small behaviour check in a separate Python process.
 
 The Test Generation agent only returns tests that have passed. It runs them with pytest and, on failure, sends pytest's output back to the model, up to `max_attempts` runs (default 3). The output includes the final run (tests, failures, coverage of the target) and the coverage from any existing tests you passed in. Tests run in a temporary directory with a separate `python -I`, a minimal environment (no API keys) and a timeout. That is careful, but it is not a sandbox: only run it on code you trust. Its 5 golden cases are scored on coverage and on **mutants**, small deliberate bugs the tests must catch, so tests that merely call the code do not pass.
+
+The Documentation agent cannot change your code: the model sends docstrings by name, AgentForge places them, and the syntax trees before and after must match apart from docstrings. Every public definition must end up documented, and each new docstring must pass a rubric (every parameter described, every exception the function raises named, a Returns or Yields section where needed, a one-line summary). `>>>` examples are run as doctests. Problems go back to the model up to twice. Its 5 golden cases cover all three styles, classes, generators and a partly documented module.
 
 See [docs/AGENT_TEMPLATE.md](docs/AGENT_TEMPLATE.md) for how to write a new agent.
 

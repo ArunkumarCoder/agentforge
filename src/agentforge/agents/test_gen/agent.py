@@ -1,6 +1,6 @@
 """Agent 3 — Test Generation: a module in, a pytest file that has actually passed out.
 
-The model writes the tests; AgentForge runs them (see ``runner.py``). Failing
+The model writes the tests; AgentForge runs them (see ``tools/pytest_runner.py``). Failing
 tests go back to the model with pytest's output, up to ``max_attempts`` runs in
 total. The result records how the final run went and how much of the target
 the tests cover, next to the coverage from any existing tests.
@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from agentforge.agents.test_gen import runner
 from agentforge.agents.test_gen.schema import (
     GenerateTestsInput,
     GenerateTestsOutput,
@@ -23,6 +22,7 @@ from agentforge.core.errors import AgentForgeError
 from agentforge.core.llm_agent import LLMAgent
 from agentforge.core.registry import register_agent
 from agentforge.core.structured import OutputCheckError
+from agentforge.tools import pytest_runner as runner
 from agentforge.tools.builtin import ListFilesTool, ReadFileTool, SearchTextTool, Workspace
 from agentforge.tools.registry import ToolRegistry
 

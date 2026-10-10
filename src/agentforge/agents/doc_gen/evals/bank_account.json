@@ -1,0 +1,22 @@
+{
+  "name": "bank_account",
+  "description": "A class with a property, a classmethod and methods that raise, in Sphinx style.",
+  "input": {
+    "target": "bank/account.py",
+    "files": {
+      "bank/account.py": "from decimal import Decimal\n\n\nclass InsufficientFundsError(Exception):\n    pass\n\n\nclass Account:\n    def __init__(self, owner: str, balance: Decimal = Decimal(\"0\")) -> None:\n        if balance < 0:\n            raise ValueError(\"opening balance cannot be negative\")\n        self.owner = owner\n        self._balance = balance\n\n    @property\n    def balance(self) -> Decimal:\n        return self._balance\n\n    @classmethod\n    def from_dict(cls, data: dict[str, str]) -> \"Account\":\n        return cls(data[\"owner\"], Decimal(data.get(\"balance\", \"0\")))\n\n    def deposit(self, amount: Decimal) -> Decimal:\n        if amount <= 0:\n            raise ValueError(\"deposit must be positive\")\n        self._balance += amount\n        return self._balance\n\n    def withdraw(self, amount: Decimal) -> Decimal:\n        if amount <= 0:\n            raise ValueError(\"withdrawal must be positive\")\n        if amount > self._balance:\n            raise InsufficientFundsError(f\"balance {self._balance} is less than {amount}\")\n        self._balance -= amount\n        return self._balance\n"
+    },
+    "style": "sphinx"
+  },
+  "expect": {
+    "must_mention": {
+      "Account.withdraw": [
+        "InsufficientFundsError",
+        "positive"
+      ],
+      "Account.from_dict": [
+        "owner"
+      ]
+    }
+  }
+}

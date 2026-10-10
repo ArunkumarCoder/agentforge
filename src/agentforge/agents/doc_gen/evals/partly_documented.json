@@ -1,0 +1,19 @@
+{
+  "name": "partly_documented",
+  "description": "Some functions already have docstrings; those must be kept and the rest filled in.",
+  "input": {
+    "target": "text/clean.py",
+    "files": {
+      "text/clean.py": "\"\"\"Small text clean-up helpers.\"\"\"\n\nimport re\n\n_SPACES = re.compile(r\"\\s+\")\n\n\ndef squash_spaces(text: str) -> str:\n    \"\"\"Collapse runs of whitespace into single spaces and trim the ends.\"\"\"\n    return _SPACES.sub(\" \", text).strip()\n\n\ndef truncate(text: str, limit: int, suffix: str = \"...\") -> str:\n    if limit < len(suffix):\n        raise ValueError(\"limit must leave room for the suffix\")\n    if len(text) <= limit:\n        return text\n    return text[: limit - len(suffix)].rstrip() + suffix\n\n\ndef initials(name: str) -> str:\n    return \"\".join(part[0].upper() for part in squash_spaces(name).split(\" \") if part)\n"
+    },
+    "style": "google"
+  },
+  "expect": {
+    "must_mention": {
+      "truncate": [
+        "suffix",
+        "limit"
+      ]
+    }
+  }
+}

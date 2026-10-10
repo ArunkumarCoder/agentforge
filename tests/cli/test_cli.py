@@ -115,7 +115,8 @@ class TestRun:
     def test_unknown_agent(self) -> None:
         result = runner.invoke(app, ["agents", "run", "nope"])
         assert result.exit_code == EXIT_USAGE
-        assert "available: bug-fix, code-review, echo, test-gen" in result.stderr
+        message = " ".join(result.stderr.split())  # Rich wraps long lines at the terminal width
+        assert "available: bug-fix, code-review, doc-gen, echo, test-gen" in message
 
     def test_default_input_is_empty_object(self) -> None:
         result = runner.invoke(app, ["agents", "run", "echo"])

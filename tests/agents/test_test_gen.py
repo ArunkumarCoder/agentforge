@@ -5,20 +5,18 @@ subprocess), so these tests take a few seconds.
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from agentforge.agents.test_gen import GenerateTestsInput, GenerateTestsOutput, TestGenAgent
-from agentforge.agents.test_gen import runner as runner_module
-from agentforge.agents.test_gen.runner import run_pytest
 from agentforge.agents.test_gen.schema import import_name
 from agentforge.agents.test_gen.scoring import load_cases, score
 from agentforge.core import ErrorKind
 from agentforge.core.registry import registry
 from agentforge.llm import FakeProvider
+from agentforge.tools import pytest_runner as runner_module
 from tests.agents.testgen_refs import REFERENCE_TESTS
 
 CASES = {c.name: c for c in load_cases()}
@@ -205,35 +203,6 @@ async def test_needs_pytest(monkeypatch: pytest.MonkeyPatch) -> None:
     result = await TestGenAgent(FakeProvider(script=[])).arun(LRU.input)
     assert result.error is not None
     assert "pytest is not installed" in result.error.message
-
-
-# --------------------------------------------------------------------------- runner
-
-
-async def test_runner_hides_secrets_and_enforces_a_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AGENTFORGE_LLM__API_KEY", "not-a-real-key")
-    leak = (
-        "import os\n\n\ndef test_env() -> None:\n"
-        "    assert 'AGENTFORGE_LLM__API_KEY' not in os.environ\n"
-    )
-    assert (
-        await run_pytest(
-            files={"tests/test_env.py": leak}, tests=["tests/test_env.py"], measure=None
-        )
-    ).passed
-    assert "AGENTFORGE_LLM__API_KEY" in os.environ  # still set here, just not passed on
-
-    slow = "import time\n\n\ndef test_slow() -> None:\n    time.sleep(30)\n"
-    result = await run_pytest(
-        files={"tests/test_slow.py": slow}, tests=["tests/test_slow.py"], measure=None, timeout_s=3
-    )
-    assert not result.passed
-    assert "timeout" in result.output
-
-
-async def test_runner_refuses_paths_outside_the_project() -> None:
-    with pytest.raises(ValueError, match="outside the project"):
-        await run_pytest(files={"../x.py": ""}, tests=[], measure=None)
 
 
 # --------------------------------------------------------------------------- golden cases

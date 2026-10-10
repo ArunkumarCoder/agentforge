@@ -1,0 +1,21 @@
+{
+  "name": "iter_tools",
+  "description": "Generators: the docs need Yields sections, not Returns.",
+  "input": {
+    "target": "toolkit/iters.py",
+    "files": {
+      "toolkit/iters.py": "from collections import deque\nfrom collections.abc import Iterable, Iterator\n\n\ndef chunked[T](items: Iterable[T], size: int) -> Iterator[list[T]]:\n    if size < 1:\n        raise ValueError(\"size must be at least 1\")\n    chunk: list[T] = []\n    for item in items:\n        chunk.append(item)\n        if len(chunk) == size:\n            yield chunk\n            chunk = []\n    if chunk:\n        yield chunk\n\n\ndef sliding_window[T](items: Iterable[T], width: int) -> Iterator[tuple[T, ...]]:\n    if width < 1:\n        raise ValueError(\"width must be at least 1\")\n    window: deque[T] = deque(maxlen=width)\n    for item in items:\n        window.append(item)\n        if len(window) == width:\n            yield tuple(window)\n"
+    },
+    "style": "google"
+  },
+  "expect": {
+    "must_mention": {
+      "chunked": [
+        "last"
+      ],
+      "sliding_window": [
+        "overlapping"
+      ]
+    }
+  }
+}
