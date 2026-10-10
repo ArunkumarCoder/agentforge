@@ -1,0 +1,32 @@
+{
+  "name": "slugify",
+  "description": "A pure string function with normalisation, truncation and a fallback.",
+  "input": {
+    "target": "textkit/slug.py",
+    "files": {
+      "textkit/slug.py": "\"\"\"URL slugs from titles.\"\"\"\n\nimport re\nimport unicodedata\n\n_NON_WORD = re.compile(r\"[^a-z0-9]+\")\n\n\ndef slugify(title: str, max_length: int = 50) -> str:\n    \"\"\"Lowercase ASCII words joined by '-', at most ``max_length`` characters.\"\"\"\n    if max_length < 1:\n        raise ValueError(\"max_length must be at least 1\")\n    ascii_text = unicodedata.normalize(\"NFKD\", title).encode(\"ascii\", \"ignore\").decode()\n    slug = _NON_WORD.sub(\"-\", ascii_text.lower()).strip(\"-\")\n    if len(slug) > max_length:\n        slug = slug[:max_length].rstrip(\"-\")\n    return slug or \"untitled\"\n",
+      "textkit/__init__.py": "\"\"\"Text helpers.\"\"\"\n"
+    }
+  },
+  "expect": {
+    "min_coverage": 90.0,
+    "mutants": [
+      {
+        "name": "edges not stripped",
+        "patch": "--- a/textkit/slug.py\n+++ b/textkit/slug.py\n@@ -1 +1 @@\n-    slug = _NON_WORD.sub(\"-\", ascii_text.lower()).strip(\"-\")\n+    slug = _NON_WORD.sub(\"-\", ascii_text.lower())\n"
+      },
+      {
+        "name": "truncation leaves a trailing dash",
+        "patch": "--- a/textkit/slug.py\n+++ b/textkit/slug.py\n@@ -1 +1 @@\n-        slug = slug[:max_length].rstrip(\"-\")\n+        slug = slug[:max_length]\n"
+      },
+      {
+        "name": "no fallback for empty slugs",
+        "patch": "--- a/textkit/slug.py\n+++ b/textkit/slug.py\n@@ -1 +1 @@\n-    return slug or \"untitled\"\n+    return slug\n"
+      },
+      {
+        "name": "zero length accepted",
+        "patch": "--- a/textkit/slug.py\n+++ b/textkit/slug.py\n@@ -1 +1 @@\n-    if max_length < 1:\n+    if max_length < 0:\n"
+      }
+    ]
+  }
+}

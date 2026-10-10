@@ -1,0 +1,27 @@
+{
+  "name": "lru_cache",
+  "description": "A stateful class where order of operations matters (recency and eviction).",
+  "input": {
+    "target": "cachekit/lru.py",
+    "files": {
+      "cachekit/lru.py": "\"\"\"A tiny least-recently-used cache.\"\"\"\n\nfrom collections import OrderedDict\n\n\nclass LRUCache:\n    def __init__(self, capacity: int) -> None:\n        if capacity < 1:\n            raise ValueError(\"capacity must be at least 1\")\n        self.capacity = capacity\n        self._data: OrderedDict[str, object] = OrderedDict()\n\n    def get(self, key: str, default: object = None) -> object:\n        if key not in self._data:\n            return default\n        self._data.move_to_end(key)\n        return self._data[key]\n\n    def put(self, key: str, value: object) -> None:\n        if key in self._data:\n            self._data.move_to_end(key)\n        self._data[key] = value\n        if len(self._data) > self.capacity:\n            self._data.popitem(last=False)\n\n    def __len__(self) -> int:\n        return len(self._data)\n"
+    }
+  },
+  "expect": {
+    "min_coverage": 95.0,
+    "mutants": [
+      {
+        "name": "get does not refresh recency",
+        "patch": "--- a/cachekit/lru.py\n+++ b/cachekit/lru.py\n@@ -1 +1 @@\n-        self._data.move_to_end(key)\n+        pass\n"
+      },
+      {
+        "name": "evicts the newest item",
+        "patch": "--- a/cachekit/lru.py\n+++ b/cachekit/lru.py\n@@ -1 +1 @@\n-            self._data.popitem(last=False)\n+            self._data.popitem(last=True)\n"
+      },
+      {
+        "name": "holds one item too many",
+        "patch": "--- a/cachekit/lru.py\n+++ b/cachekit/lru.py\n@@ -1 +1 @@\n-        if len(self._data) > self.capacity:\n+        if len(self._data) > self.capacity + 1:\n"
+      }
+    ]
+  }
+}

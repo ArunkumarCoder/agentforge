@@ -93,7 +93,7 @@ async def test_second_failure_is_an_output_validation_error() -> None:
 
 
 class ThreeLineHaikuAgent(HaikuAgent):
-    def check(self, output: Haiku, data: Topic, ctx: RunContext) -> None:
+    async def check(self, output: Haiku, data: Topic, ctx: RunContext) -> None:
         if len(output.lines) != 3:
             raise OutputCheckError(f"A haiku has 3 lines, not {len(output.lines)}.")
 
@@ -111,6 +111,18 @@ async def test_check_failure_twice_is_an_output_validation_error() -> None:
     assert result.error is not None
     assert result.error.kind is ErrorKind.OUTPUT_VALIDATION
     assert "not 2" in result.error.message
+
+
+async def test_repair_budget_allows_several_corrections() -> None:
+    class Patient(ThreeLineHaikuAgent):
+        max_repairs = 2
+
+    llm = FakeProvider(script=['{"lines": ["one"]}', '{"lines": ["one", "two"]}', VALID])
+    result = await Patient(llm).arun({"topic": "frogs"})
+    assert result.ok
+    last = llm.requests[2].messages
+    assert [m.role.value for m in last[-4:]] == ["assistant", "user", "assistant", "user"]
+    assert "not 2" in last[-1].content
 
 
 async def test_unknown_placeholder_is_a_definition_error() -> None:

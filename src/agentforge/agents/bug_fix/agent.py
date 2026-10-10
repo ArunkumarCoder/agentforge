@@ -52,7 +52,7 @@ class BugFixAgent(LLMAgent[BugFixInput, BugFixOutput]):
             [ReadFileTool(workspace), ListFilesTool(workspace), SearchTextTool(workspace)]
         )
 
-    def check(self, output: BugFixOutput, data: BugFixInput, ctx: RunContext) -> None:
+    async def check(self, output: BugFixOutput, data: BugFixInput, ctx: RunContext) -> None:
         """The patch must apply to the real files, or the model gets one chance to fix it."""
         try:
             sources = data.files or self._read_from_repo(data, output.patch)

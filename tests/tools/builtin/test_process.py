@@ -1,5 +1,6 @@
 """git_diff and run_command: real subprocesses, no shell."""
 
+import os
 import shutil
 import subprocess
 import sys
@@ -143,3 +144,17 @@ async def test_missing_program(tmp_path: Path) -> None:
 
     with pytest.raises(ToolError, match="Program not found"):
         await run_process(["definitely-not-a-real-program-xyz"], cwd=str(tmp_path), timeout_s=5)
+
+
+async def test_environment_can_be_replaced_instead_of_inherited(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AGENTFORGE_SECRET_FOR_TEST", "s3cret")
+    script = "import os; print(os.environ.get('AGENTFORGE_SECRET_FOR_TEST', 'absent'))"
+    inherited = await run_process([sys.executable, "-c", script], cwd=str(tmp_path), timeout_s=30)
+    assert inherited.stdout.strip() == "s3cret"
+    env = {k: v for k, v in os.environ.items() if k.upper() in {"PATH", "SYSTEMROOT"}}
+    clean = await run_process(
+        [sys.executable, "-c", script], cwd=str(tmp_path), timeout_s=30, env=env, inherit_env=False
+    )
+    assert clean.stdout.strip() == "absent"

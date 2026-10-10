@@ -1,0 +1,28 @@
+{
+  "name": "inventory",
+  "description": "A small class with existing tests that only cover adding; coverage must go up.",
+  "input": {
+    "target": "shop/inventory.py",
+    "files": {
+      "shop/inventory.py": "\"\"\"Stock levels per SKU.\"\"\"\n\n\nclass OutOfStockError(Exception):\n    \"\"\"Not enough items to remove.\"\"\"\n\n\nclass Inventory:\n    def __init__(self) -> None:\n        self._stock: dict[str, int] = {}\n\n    def add(self, sku: str, quantity: int) -> None:\n        if quantity <= 0:\n            raise ValueError(\"quantity must be positive\")\n        self._stock[sku] = self._stock.get(sku, 0) + quantity\n\n    def remove(self, sku: str, quantity: int) -> None:\n        if quantity <= 0:\n            raise ValueError(\"quantity must be positive\")\n        have = self._stock.get(sku, 0)\n        if quantity > have:\n            raise OutOfStockError(f\"{sku}: have {have}, need {quantity}\")\n        left = have - quantity\n        if left:\n            self._stock[sku] = left\n        else:\n            del self._stock[sku]\n\n    def count(self, sku: str) -> int:\n        return self._stock.get(sku, 0)\n\n    def skus(self) -> list[str]:\n        \"\"\"SKUs that are in stock, sorted.\"\"\"\n        return sorted(self._stock)\n",
+      "tests/test_inventory_add.py": "from shop.inventory import Inventory\n\n\ndef test_add_and_count() -> None:\n    inventory = Inventory()\n    inventory.add(\"pen\", 3)\n    inventory.add(\"pen\", 2)\n    assert inventory.count(\"pen\") == 5\n"
+    }
+  },
+  "expect": {
+    "min_coverage": 95.0,
+    "mutants": [
+      {
+        "name": "cannot remove the last item",
+        "patch": "--- a/shop/inventory.py\n+++ b/shop/inventory.py\n@@ -1 +1 @@\n-        if quantity > have:\n+        if quantity >= have:\n"
+      },
+      {
+        "name": "empty SKUs are kept",
+        "patch": "--- a/shop/inventory.py\n+++ b/shop/inventory.py\n@@ -1 +1 @@\n-        if left:\n+        if True:\n"
+      },
+      {
+        "name": "SKUs not sorted",
+        "patch": "--- a/shop/inventory.py\n+++ b/shop/inventory.py\n@@ -1 +1 @@\n-        return sorted(self._stock)\n+        return list(self._stock)\n"
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "split_bill",
+  "description": "Decimal arithmetic where the remainder cents must be shared out exactly.",
+  "input": {
+    "target": "billing/split.py",
+    "files": {
+      "billing/split.py": "\"\"\"Splitting a bill fairly, to the cent.\"\"\"\n\nfrom decimal import Decimal\n\nCENT = Decimal(\"0.01\")\n\n\ndef split_bill(total: Decimal, people: int) -> list[Decimal]:\n    \"\"\"Shares that add up to ``total`` exactly and differ by at most one cent.\"\"\"\n    if people < 1:\n        raise ValueError(\"people must be at least 1\")\n    if total < 0:\n        raise ValueError(\"total cannot be negative\")\n    cents = int(total.quantize(CENT) / CENT)\n    base, extra = divmod(cents, people)\n    return [(base + (1 if i < extra else 0)) * CENT for i in range(people)]\n"
+    },
+    "instructions": "Check that the shares always add up to the total."
+  },
+  "expect": {
+    "min_coverage": 90.0,
+    "mutants": [
+      {
+        "name": "one cent too many",
+        "patch": "--- a/billing/split.py\n+++ b/billing/split.py\n@@ -1 +1 @@\n-    return [(base + (1 if i < extra else 0)) * CENT for i in range(people)]\n+    return [(base + (1 if i <= extra else 0)) * CENT for i in range(people)]\n"
+      },
+      {
+        "name": "remainder dropped",
+        "patch": "--- a/billing/split.py\n+++ b/billing/split.py\n@@ -1 +1 @@\n-    return [(base + (1 if i < extra else 0)) * CENT for i in range(people)]\n+    return [base * CENT for i in range(people)]\n"
+      },
+      {
+        "name": "negative totals accepted",
+        "patch": "--- a/billing/split.py\n+++ b/billing/split.py\n@@ -1 +1 @@\n-    if total < 0:\n+    if total < -1:\n"
+      }
+    ]
+  }
+}

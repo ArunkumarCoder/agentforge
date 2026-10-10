@@ -1,0 +1,27 @@
+{
+  "name": "business_days",
+  "description": "Date arithmetic with weekends and holidays; needs fixed dates, not today().",
+  "input": {
+    "target": "delivery/calendar.py",
+    "files": {
+      "delivery/calendar.py": "\"\"\"Business-day arithmetic for delivery estimates.\"\"\"\n\nfrom datetime import date, timedelta\n\n\ndef add_business_days(start: date, days: int, holidays: frozenset[date] = frozenset()) -> date:\n    \"\"\"The date ``days`` working days after ``start`` (Mon-Fri, skipping ``holidays``).\"\"\"\n    if days < 0:\n        raise ValueError(\"days must be zero or more\")\n    current = start\n    while days:\n        current += timedelta(days=1)\n        if current.weekday() < 5 and current not in holidays:\n            days -= 1\n    return current\n"
+    }
+  },
+  "expect": {
+    "min_coverage": 90.0,
+    "mutants": [
+      {
+        "name": "Saturday counted",
+        "patch": "--- a/delivery/calendar.py\n+++ b/delivery/calendar.py\n@@ -1 +1 @@\n-        if current.weekday() < 5 and current not in holidays:\n+        if current.weekday() < 6 and current not in holidays:\n"
+      },
+      {
+        "name": "holidays ignored",
+        "patch": "--- a/delivery/calendar.py\n+++ b/delivery/calendar.py\n@@ -1 +1 @@\n-        if current.weekday() < 5 and current not in holidays:\n+        if current.weekday() < 5:\n"
+      },
+      {
+        "name": "negative days accepted",
+        "patch": "--- a/delivery/calendar.py\n+++ b/delivery/calendar.py\n@@ -1 +1 @@\n-    if days < 0:\n+    if days < -1:\n"
+      }
+    ]
+  }
+}

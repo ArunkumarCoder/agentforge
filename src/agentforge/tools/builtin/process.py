@@ -57,13 +57,19 @@ async def run_process(
     cwd: str,
     timeout_s: float,
     env: Mapping[str, str] | None = None,
+    inherit_env: bool = True,
 ) -> ProcessResult:
-    """Run ``argv`` (no shell) and capture its output; kill it on timeout."""
+    """Run ``argv`` (no shell) and capture its output; kill it on timeout.
+
+    ``env`` is added to this process's environment, or, with ``inherit_env=False``,
+    is the whole environment (use that to keep secrets such as API keys out).
+    """
+    base = dict(os.environ) if inherit_env else {}
     try:
         proc = await asyncio.create_subprocess_exec(
             *argv,
             cwd=cwd,
-            env={**os.environ, **(env or {})},
+            env={**base, **(env or {})},
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

@@ -18,9 +18,10 @@ An agent package looks like this::
    input (``build_tools``).
 3. Runs the tool-calling loop.
 4. Parses the final answer into the output model and runs ``check`` (for
-   things the schema can't express, such as "the patch applies"). If either
-   fails, the problem is sent back **once** so the model can fix it; a second
-   failure becomes an ``output_validation`` error on the run.
+   things the schema can't express, such as "the patch applies" or "the tests
+   pass"). If either fails, the problem is sent back so the model can fix it,
+   up to ``repair_budget`` times (default: once); after that the run fails
+   with an ``output_validation`` error.
 5. Lets the subclass clean up the result (``postprocess``).
 """
 
@@ -59,6 +60,7 @@ class LLMAgent[InT: AgentInput, OutT: AgentOutput](BaseAgent[InT, OutT]):
     max_tokens: ClassVar[int] = 4096
     allowed_permissions: ClassVar[frozenset[ToolPermission]] = SAFE_PERMISSIONS
     model: ClassVar[str | None] = None  # override the provider's default model
+    max_repairs: ClassVar[int] = 1  # corrections allowed after a bad answer
 
     def __init__(self, llm: LLMProvider | None = None) -> None:
         super().__init__()
@@ -79,12 +81,16 @@ class LLMAgent[InT: AgentInput, OutT: AgentOutput](BaseAgent[InT, OutT]):
         """Extra values for ``{{placeholders}}`` in prompt.md."""
         return {}
 
-    def check(self, output: OutT, data: InT, ctx: RunContext) -> None:
+    async def check(self, output: OutT, data: InT, ctx: RunContext) -> None:
         """Verify the output against reality (e.g. "does the patch apply?").
 
         Raise ``OutputCheckError`` with a clear message to send the model back for
-        one repair, exactly like a schema error.
+        a repair, exactly like a schema error. Async, so a check can run a process.
         """
+
+    def repair_budget(self, data: InT) -> int:
+        """How many corrections the model gets after a bad answer. Default: ``max_repairs``."""
+        return self.max_repairs
 
     def postprocess(self, output: OutT, data: InT, ctx: RunContext) -> OutT:
         """Adjust or check the parsed output (e.g. sort, drop invalid items)."""
@@ -120,29 +126,35 @@ class LLMAgent[InT: AgentInput, OutT: AgentOutput](BaseAgent[InT, OutT]):
         )
         ctx.metadata.update(steps=result.steps, tool_calls=result.tool_calls)
         try:
-            output = self._parse_and_check(result.text, data, ctx)
+            output = await self._parse_and_check(result.text, data, ctx)
         except OutputParseError as first:
-            ctx.log.warning("agent.output.repair", error_message=str(first))
             output = await self._repair(result.messages, first, data, ctx)
         return self.postprocess(output, data, ctx)
 
-    def _parse_and_check(self, text: str, data: InT, ctx: RunContext) -> OutT:
+    async def _parse_and_check(self, text: str, data: InT, ctx: RunContext) -> OutT:
         output = parse_model_output(text, self.output_model)
-        self.check(output, data, ctx)
+        await self.check(output, data, ctx)
         return output
 
     async def _repair(
         self, transcript: list[Message], error: OutputParseError, data: InT, ctx: RunContext
     ) -> OutT:
-        messages = [*transcript, Message.user(REPAIR_MESSAGE.format(error=error))]
-        response = await self.llm.complete(
-            LLMRequest(messages=messages, max_tokens=self.max_tokens, model=self.model)
-        )
-        ctx.add_usage(response.usage)
-        try:
-            return self._parse_and_check(response.text, data, ctx)
-        except OutputParseError as second:
-            raise AgentOutputError(f"invalid output after one repair attempt: {second}") from second
+        budget = self.repair_budget(data)
+        messages = list(transcript)
+        for attempt in range(1, budget + 1):
+            ctx.log.warning("agent.output.repair", attempt=attempt, error_message=str(error))
+            messages.append(Message.user(REPAIR_MESSAGE.format(error=error)))
+            response = await self.llm.complete(
+                LLMRequest(messages=messages, max_tokens=self.max_tokens, model=self.model)
+            )
+            ctx.add_usage(response.usage)
+            try:
+                return await self._parse_and_check(response.text, data, ctx)
+            except OutputParseError as exc:
+                error = exc
+                messages.append(Message.assistant(response.text))
+        attempts = "one repair attempt" if budget == 1 else f"{budget} repair attempts"
+        raise AgentOutputError(f"invalid output after {attempts}: {error}") from error
 
     # ------------------------------------------------------------------ internals
 
