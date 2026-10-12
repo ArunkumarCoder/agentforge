@@ -1,0 +1,24 @@
+{
+  "name": "long_complex",
+  "description": "One 30-line function with 13 branches: pricing, discounts and shipping tangled together.",
+  "input": {
+    "target": "orders/pricing.py",
+    "files": {
+      "orders/pricing.py": "def price_order(items, customer_tier, coupon=None):\n    subtotal = 0.0\n    for item in items:\n        price = item[\"price\"]\n        qty = item[\"qty\"]\n        if qty <= 0:\n            raise ValueError(\"quantity must be positive\")\n        if item.get(\"sale\"):\n            price = price * 0.9\n        if qty >= 10:\n            price = price * 0.95\n        subtotal += price * qty\n    discount = 0.0\n    if customer_tier == \"gold\":\n        discount = 0.10\n    elif customer_tier == \"silver\":\n        discount = 0.05\n    elif customer_tier == \"bronze\":\n        discount = 0.02\n    if coupon == \"SAVE5\":\n        discount += 0.05\n    elif coupon == \"SAVE10\":\n        discount += 0.10\n    elif coupon is not None:\n        raise ValueError(f\"unknown coupon: {coupon}\")\n    discount = min(discount, 0.25)\n    total = subtotal * (1 - discount)\n    if total > 500:\n        shipping = 0.0\n    elif total > 100:\n        shipping = 5.0\n    else:\n        shipping = 10.0\n    return round(total + shipping, 2)\n",
+      "tests/test_pricing.py": "import pytest\n\nfrom orders.pricing import price_order\n\n\ndef test_plain_order():\n    assert price_order([{\"price\": 20.0, \"qty\": 2}], \"none\") == 50.0\n\n\ndef test_gold_with_coupon():\n    items = [{\"price\": 100.0, \"qty\": 2}]\n    assert price_order(items, \"gold\", \"SAVE5\") == 175.0\n\n\ndef test_bad_quantity():\n    with pytest.raises(ValueError, match=\"positive\"):\n        price_order([{\"price\": 1.0, \"qty\": 0}], \"none\")\n"
+    },
+    "thresholds": {
+      "max_lines": 20,
+      "max_complexity": 8
+    }
+  },
+  "expect": {
+    "fixed": [
+      "long_function",
+      "complex_function"
+    ],
+    "hidden_tests": {
+      "tests/test_hidden_pricing.py": "import pytest\n\nfrom orders.pricing import price_order\n\n\ndef test_sale_and_bulk_discounts_stack():\n    items = [{\"price\": 10.0, \"qty\": 10, \"sale\": True}]\n    assert price_order(items, \"none\") == 95.5\n\n\ndef test_tiers_and_coupons_add_up():\n    items = [{\"price\": 100.0, \"qty\": 1}]\n    assert price_order(items, \"silver\") == 105.0\n    assert price_order(items, \"bronze\") == 108.0\n    assert price_order(items, \"gold\", \"SAVE10\") == 90.0\n\n\ndef test_shipping_bands():\n    assert price_order([{\"price\": 600.0, \"qty\": 1}], \"none\") == 600.0\n    assert price_order([{\"price\": 200.0, \"qty\": 1}], \"none\") == 205.0\n    assert price_order([{\"price\": 50.0, \"qty\": 1}], \"none\") == 60.0\n\n\ndef test_unknown_coupon_and_error_order():\n    with pytest.raises(ValueError, match=\"unknown coupon: BOGUS\"):\n        price_order([{\"price\": 1.0, \"qty\": 1}], \"none\", \"BOGUS\")\n    with pytest.raises(ValueError, match=\"positive\"):  # items are checked first\n        price_order([{\"price\": 1.0, \"qty\": -1}], \"none\", \"BOGUS\")\n"
+    }
+  }
+}

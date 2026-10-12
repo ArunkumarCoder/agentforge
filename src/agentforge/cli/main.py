@@ -4,13 +4,16 @@
     agentforge agents list [--json]
     agentforge agents show <name>
     agentforge agents run <name> --data '{"text": "hi"}'   # or --input file.json, or stdin
+    agentforge eval list
+    agentforge eval run <agent|all> [--case NAME] [--min-pass-rate 0.8] [--out DIR]
     agentforge llm ping [--prompt "..."]
     agentforge config show
 
 Results go to stdout (pretty by default, ``--json`` for scripts); logs go to
 stderr, so ``agentforge agents run ... --json | jq`` works.
 
-Exit codes: 0 success, 1 the agent run failed, 2 bad input or usage.
+Exit codes: 0 success, 1 the agent run failed (or an eval fell below its pass rate),
+2 bad input or usage.
 """
 
 from __future__ import annotations
@@ -30,9 +33,10 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from agentforge import __version__
-from agentforge.config import LogFormat, Settings, get_settings
+from agentforge.config import LLMProvider, LogFormat, Settings, get_settings
 from agentforge.core.registry import UnknownAgentError, registry
 from agentforge.core.schemas import Message
+from agentforge.evals import CaseStatus, SuiteReport, UnknownCaseError, all_suites, run_suite
 from agentforge.llm import LLMError, LLMRequest, create_provider
 from agentforge.log import configure_logging
 
@@ -49,7 +53,9 @@ app = typer.Typer(
 agents_app = typer.Typer(help="List, inspect and run agents.", no_args_is_help=True)
 llm_app = typer.Typer(help="Check the configured LLM provider.", no_args_is_help=True)
 config_app = typer.Typer(help="Show the effective configuration.", no_args_is_help=True)
+eval_app = typer.Typer(help="Run agents' golden eval cases.", no_args_is_help=True)
 app.add_typer(agents_app, name="agents")
+app.add_typer(eval_app, name="eval")
 app.add_typer(llm_app, name="llm")
 app.add_typer(config_app, name="config")
 
@@ -213,6 +219,141 @@ def _read_input(data: str | None, input_file: Path | None) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise _fail(f'{source} must be a JSON object, e.g. \'{{"text": "hi"}}\'')
     return parsed
+
+
+# --------------------------------------------------------------------------- eval
+
+
+@eval_app.command("list")
+def eval_list(
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")] = False,
+) -> None:
+    """List the agents that have golden eval cases."""
+    suites = all_suites()
+    rows = {name: sorted(c.name for c in suite.load_cases()) for name, suite in suites.items()}
+    if as_json:
+        _print_json(rows)
+        return
+    table = Table(title=f"{len(rows)} eval suite(s)", title_justify="left")
+    table.add_column("Agent", style="bold cyan", no_wrap=True)
+    table.add_column("Cases", justify="right")
+    table.add_column("Case names")
+    for name, cases in rows.items():
+        table.add_row(escape(name), str(len(cases)), escape(", ".join(cases)))
+    out.print(table)
+
+
+@eval_app.command("run")
+def eval_run(
+    agent: Annotated[str, typer.Argument(help="Agent name, or 'all'.")],
+    case: Annotated[
+        list[str] | None, typer.Option("--case", "-c", help="Only this case (repeatable).")
+    ] = None,
+    min_pass_rate: Annotated[
+        float, typer.Option("--min-pass-rate", min=0.0, max=1.0, help="Exit 1 below this rate.")
+    ] = 0.8,
+    concurrency: Annotated[
+        int, typer.Option("--concurrency", min=1, max=8, help="Cases to run at once.")
+    ] = 1,
+    out_dir: Annotated[Path, typer.Option("--out", help="Folder for the JSON reports.")] = Path(
+        ".cache/evals"
+    ),
+    save: Annotated[bool, typer.Option("--save/--no-save", help="Write JSON reports.")] = True,
+    allow_fake: Annotated[
+        bool, typer.Option("--allow-fake", help="Allow the fake provider (tests and demos).")
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the summaries as JSON.")] = False,
+) -> None:
+    """Run golden cases against the configured model and report pass rates.
+
+    Costs real tokens: one agent run per case. Needs a real provider and key.
+    """
+    suites = all_suites()
+    if agent != "all" and agent not in suites:
+        raise _fail(f"no eval suite for '{agent}' (available: {', '.join(suites)}, all)")
+    if agent == "all" and case:
+        raise _fail("--case needs a single agent, not 'all'")
+    names = list(suites) if agent == "all" else [agent]
+
+    settings = get_settings()
+    if settings.llm.provider is LLMProvider.FAKE and not allow_fake:
+        raise _fail(
+            "the fake provider cannot solve eval cases. Set AGENTFORGE_LLM__PROVIDER "
+            "(and the API key) in .env, or pass --allow-fake to test the harness"
+        )
+    try:
+        provider = create_provider(settings)
+    except LLMError as exc:
+        raise _fail(f"{type(exc).__name__}: {exc}") from None
+    _load_agents()
+
+    reports: list[SuiteReport] = []
+    for name in names:
+        instance = registry.create(name, llm=provider)
+        try:
+            report = asyncio.run(
+                run_suite(
+                    suites[name],
+                    instance,
+                    cases=case or None,
+                    concurrency=concurrency,
+                    provider=settings.llm.provider.value,
+                    model=settings.llm.model,
+                )
+            )
+        except UnknownCaseError as exc:
+            raise _fail(str(exc)) from None
+        reports.append(report)
+        if not as_json:
+            _print_report(report)
+        if save:
+            path = report.save(out_dir)
+            err.print(f"[dim]saved {escape(str(path))}[/]")
+
+    if as_json:
+        _print_json([r.summary() for r in reports])
+    else:
+        _print_totals(reports)
+    if any(r.pass_rate < min_pass_rate for r in reports):
+        raise typer.Exit(EXIT_RUN_FAILED)
+
+
+_STATUS_STYLE = {
+    CaseStatus.PASSED: "[green]pass[/]",
+    CaseStatus.FAILED: "[red]FAIL[/]",
+    CaseStatus.ERROR: "[red]ERROR[/]",
+}
+
+
+def _print_report(report: SuiteReport) -> None:
+    table = Table(
+        title=f"{report.agent}: {report.passed}/{report.total} passed", title_justify="left"
+    )
+    table.add_column("Case", no_wrap=True)
+    table.add_column("Result")
+    table.add_column("Score", justify="right")
+    table.add_column("Tokens", justify="right")
+    table.add_column("Cost", justify="right")
+    table.add_column("Time", justify="right")
+    table.add_column("Problems")
+    for r in report.results:
+        problems = r.error or "; ".join(f"{c.name} ({c.detail})" for c in r.failed_checks())
+        table.add_row(
+            escape(r.case),
+            _STATUS_STYLE[r.status],
+            f"{r.score:.2f}",
+            str(r.tokens),
+            f"${r.cost_usd:.4f}",
+            f"{r.duration_ms / 1000:.1f}s",
+            escape(problems),
+        )
+    out.print(table)
+
+
+def _print_totals(reports: list[SuiteReport]) -> None:
+    passed, total = sum(r.passed for r in reports), sum(r.total for r in reports)
+    cost, tokens = sum(r.cost_usd for r in reports), sum(r.tokens for r in reports)
+    out.print(f"[bold]{passed}/{total} cases passed[/] · {tokens} tokens · ${cost:.4f}")
 
 
 # --------------------------------------------------------------------------- llm

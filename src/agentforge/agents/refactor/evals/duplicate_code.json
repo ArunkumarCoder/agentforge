@@ -1,0 +1,19 @@
+{
+  "name": "duplicate_code",
+  "description": "The address block is copy-pasted into two formatters.",
+  "input": {
+    "target": "reports/format.py",
+    "files": {
+      "reports/format.py": "def format_invoice(customer, lines):\n    out = []\n    out.append(customer[\"name\"].upper())\n    out.append(customer[\"street\"])\n    out.append(f\"{customer['zip']} {customer['city']}\")\n    out.append(customer.get(\"country\", \"NL\").upper())\n    out.append(\"\")\n    total = 0\n    for name, price in lines:\n        out.append(f\"{name:<20}{price:>8.2f}\")\n        total += price\n    out.append(f\"{'TOTAL':<20}{total:>8.2f}\")\n    return \"\\n\".join(out)\n\n\ndef format_quote(customer, lines, valid_days=30):\n    out = []\n    out.append(customer[\"name\"].upper())\n    out.append(customer[\"street\"])\n    out.append(f\"{customer['zip']} {customer['city']}\")\n    out.append(customer.get(\"country\", \"NL\").upper())\n    out.append(\"\")\n    out.append(f\"Valid for {valid_days} days\")\n    for name, price in lines:\n        out.append(f\"{name:<20}{price:>8.2f}\")\n    return \"\\n\".join(out)\n",
+      "tests/test_format.py": "from reports.format import format_invoice, format_quote\n\nCUSTOMER = {\"name\": \"Ada Lovelace\", \"street\": \"1 Main St\", \"zip\": \"1011\", \"city\": \"Amsterdam\"}\n\n\ndef test_invoice():\n    text = format_invoice(CUSTOMER, [(\"Pen\", 1.5), (\"Pad\", 2.0)])\n    assert text.splitlines()[0] == \"ADA LOVELACE\"\n    assert text.splitlines()[-1] == \"TOTAL                   3.50\"\n\n\ndef test_quote():\n    text = format_quote(CUSTOMER, [(\"Pen\", 1.5)])\n    assert \"Valid for 30 days\" in text\n"
+    }
+  },
+  "expect": {
+    "fixed": [
+      "duplicate_code"
+    ],
+    "hidden_tests": {
+      "tests/test_hidden_format.py": "from reports.format import format_invoice, format_quote\n\nCUSTOMER = {\"name\": \"Ada\", \"street\": \"S\", \"zip\": \"1\", \"city\": \"C\", \"country\": \"de\"}\n\n\ndef test_exact_layout():\n    assert format_invoice(CUSTOMER, [(\"Pen\", 1.5)]) == (\n        \"ADA\\nS\\n1 C\\nDE\\n\\nPen                     1.50\\nTOTAL                   1.50\"\n    )\n    assert format_quote(CUSTOMER, [(\"Pen\", 1.5)], valid_days=7) == (\n        \"ADA\\nS\\n1 C\\nDE\\n\\nValid for 7 days\\nPen                     1.50\"\n    )\n"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install hooks fmt lint type test test-live cov check clean
+.PHONY: help install hooks fmt lint type test test-live eval cov check clean
 
 help:  ## Show available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -26,6 +26,9 @@ test:  ## Run tests
 
 test-live:  ## Run live LLM smoke tests (needs API keys; costs a few cents at most)
 	uv run pytest -m llm -v
+
+eval:  ## Run every agent's golden eval cases against the configured model (costs tokens)
+	uv run agentforge eval run all
 
 cov:  ## Run tests with coverage report (fails under 80%)
 	uv run pytest --cov --cov-report=term-missing --cov-report=html

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 from typer.testing import CliRunner
 
 from agentforge import __version__
@@ -116,7 +117,7 @@ class TestRun:
         result = runner.invoke(app, ["agents", "run", "nope"])
         assert result.exit_code == EXIT_USAGE
         message = " ".join(result.stderr.split())  # Rich wraps long lines at the terminal width
-        assert "available: bug-fix, code-review, doc-gen, echo, test-gen" in message
+        assert "available: bug-fix, code-review, doc-gen, echo, refactor, test-gen" in message
 
     def test_default_input_is_empty_object(self) -> None:
         result = runner.invoke(app, ["agents", "run", "echo"])
@@ -181,3 +182,93 @@ def test_python_dash_m_entry_point() -> None:
         check=True,
     )
     assert completed.stdout.strip() == f"agentforge {__version__}"
+
+
+class TestEval:
+    """`agentforge eval`: list, refuse the fake provider, and run a tiny suite offline."""
+
+    @staticmethod
+    def echo_suite(monkeypatch: pytest.MonkeyPatch, *, expect_upper: bool) -> None:
+        from agentforge.agents.echo import EchoAgent, EchoInput, EchoOutput
+        from agentforge.evals import CaseScore, Check, Suite
+        from agentforge.llm import FakeProvider
+
+        class Case(BaseModel):
+            name: str
+            text: str
+
+        def score(case: Case, output: EchoOutput) -> CaseScore:
+            ok = output.text == case.text.upper() if expect_upper else output.text == case.text
+            return CaseScore(case=case.name, checks=[Check(name="text", passed=ok)])
+
+        suite = Suite(
+            agent="echo",
+            load_cases=lambda: [Case(name="a", text="hi"), Case(name="b", text="yo")],
+            make_input=lambda c: EchoInput(text=c.text),
+            score=score,
+        )
+        monkeypatch.setattr("agentforge.cli.main.all_suites", lambda: {"echo": suite})
+        monkeypatch.setattr("agentforge.cli.main.create_provider", lambda _settings: FakeProvider())
+        # echo takes no model; the real suites' agents are all built with `llm=`
+        monkeypatch.setattr("agentforge.cli.main.registry.create", lambda _name, **_kw: EchoAgent())
+
+    def test_list(self) -> None:
+        result = runner.invoke(app, ["eval", "list", "--json"])
+        assert result.exit_code == 0
+        suites = json.loads(result.stdout)
+        assert set(suites) == {"bug-fix", "code-review", "doc-gen", "refactor", "test-gen"}
+        assert all(len(cases) == 5 for cases in suites.values())
+
+    def test_list_table(self) -> None:
+        result = runner.invoke(app, ["eval", "list"])
+        assert result.exit_code == 0
+        assert "refactor" in result.stdout
+
+    def test_fake_provider_is_refused(self) -> None:
+        result = runner.invoke(app, ["eval", "run", "refactor"])
+        assert result.exit_code == EXIT_USAGE
+        assert "--allow-fake" in " ".join(result.stderr.split())
+
+    def test_unknown_agent(self) -> None:
+        result = runner.invoke(app, ["eval", "run", "nope", "--allow-fake"])
+        assert result.exit_code == EXIT_USAGE
+        assert "no eval suite for 'nope'" in " ".join(result.stderr.split())
+
+    def test_case_needs_one_agent(self) -> None:
+        result = runner.invoke(app, ["eval", "run", "all", "-c", "x", "--allow-fake"])
+        assert result.exit_code == EXIT_USAGE
+        assert "--case needs a single agent" in " ".join(result.stderr.split())
+
+    def test_unknown_case(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.echo_suite(monkeypatch, expect_upper=False)
+        result = runner.invoke(app, ["eval", "run", "echo", "-c", "zzz", "--allow-fake"])
+        assert result.exit_code == EXIT_USAGE
+
+    def test_passing_run_saves_a_report(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        self.echo_suite(monkeypatch, expect_upper=False)
+        out_dir = tmp_path / "reports"
+        result = runner.invoke(app, ["eval", "run", "echo", "--allow-fake", "--out", str(out_dir)])
+        assert result.exit_code == 0, result.output
+        assert "2/2 passed" in result.stdout
+        saved = list(out_dir.glob("*-echo.json"))
+        assert len(saved) == 1
+        assert json.loads(saved[0].read_text())["summary"]["passed"] == 2
+
+    def test_failing_run_exits_1_and_json_output(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        self.echo_suite(monkeypatch, expect_upper=True)
+        result = runner.invoke(app, ["eval", "run", "all", "--allow-fake", "--no-save", "--json"])
+        assert result.exit_code == EXIT_RUN_FAILED
+        summary = json.loads(result.stdout)
+        assert summary[0]["passed"] == 0
+        assert not (tmp_path / ".cache").exists()
+
+    def test_min_pass_rate_can_be_lowered(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.echo_suite(monkeypatch, expect_upper=True)
+        result = runner.invoke(
+            app, ["eval", "run", "echo", "--allow-fake", "--no-save", "--min-pass-rate", "0"]
+        )
+        assert result.exit_code == 0

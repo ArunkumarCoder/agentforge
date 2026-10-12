@@ -1,0 +1,19 @@
+{
+  "name": "too_many_parameters",
+  "description": "A private helper takes seven positional parameters; the public API must not change.",
+  "input": {
+    "target": "labels/render.py",
+    "files": {
+      "labels/render.py": "def _layout(name, price, currency, width, align, border, padding):\n    text = f\"{name} {currency}{price:.2f}\"\n    room = width - 2 * padding\n    text = text.center(room) if align == \"center\" else text.ljust(room)\n    inner = \" \" * padding + text + \" \" * padding\n    if border:\n        return \"|\" + inner + \"|\"\n    return inner\n\n\ndef render_label(product, width=30, align=\"left\", border=True):\n    currency = product.get(\"currency\", \"$\")\n    return _layout(product[\"name\"], product[\"price\"], currency, width, align, border, 1)\n",
+      "tests/test_render.py": "from labels.render import render_label\n\n\ndef test_left_aligned_with_border():\n    assert render_label({\"name\": \"Pen\", \"price\": 1.5}) == \"|\" + \" Pen $1.50\".ljust(30) + \"|\"\n\n\ndef test_centered_without_border():\n    label = render_label({\"name\": \"Pen\", \"price\": 1.5, \"currency\": \"EUR\"}, 20, \"center\", False)\n    assert label == \" \" + \"Pen EUR1.50\".center(18) + \" \"\n"
+    }
+  },
+  "expect": {
+    "fixed": [
+      "too_many_parameters"
+    ],
+    "hidden_tests": {
+      "tests/test_hidden_render.py": "from labels.render import render_label\n\n\ndef test_widths_and_defaults():\n    assert len(render_label({\"name\": \"A\", \"price\": 1}, width=10)) == 12\n    assert render_label({\"name\": \"A\", \"price\": 1}, 8, \"left\", False) == \" A $1.00 \"\n    assert render_label({\"name\": \"A\", \"price\": 1}, 9, \"center\", True) == \"| A $1.00 |\"\n"
+    }
+  }
+}

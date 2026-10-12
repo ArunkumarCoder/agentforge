@@ -16,7 +16,6 @@ Problems go back to the model (up to two corrections).
 from __future__ import annotations
 
 import ast
-from pathlib import PurePosixPath
 from typing import Any
 
 from agentforge.agents.doc_gen.docstrings import (
@@ -199,14 +198,9 @@ class DocGenAgent(LLMAgent[DocGenInput, DocGenOutput]):
             return await pytest_runner.run_pytest(
                 files=files, tests=[data.target], measure=None, args=args
             )
-        # Repo mode: the documented copy plus its packages' __init__ files, so the copy
-        # shadows the repository's version and relative imports still work.
+        # Repo mode: the documented copy shadows the repository's version.
         workspace = Workspace(data.repo_path)
-        files = {data.target: documented}
-        for parent in PurePosixPath(data.target).parents:
-            init = (parent / "__init__.py").as_posix()
-            if parent.name and (workspace.root / init).is_file():
-                files[init] = (workspace.root / init).read_text(encoding="utf-8")
+        files = pytest_runner.shadow_files(workspace.root, data.target, documented)
         return await pytest_runner.run_pytest(
             files=files,
             tests=[data.target],

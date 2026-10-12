@@ -10,7 +10,7 @@ All 25 agents, grouped by category. The week column is when each is built. Every
 | 2 | Bug Fix / Debug | 3 | Stack trace + code → root cause and a minimal patch. | file_read, test_runner | Patch applies and failing test passes |
 | 3 | Test Generation | 3 | Generates pytest tests for a module and self-verifies by running them. | file_read, pytest, coverage | Tests pass; coverage increases |
 | 4 | Documentation | 3 | Writes docstrings, module READMEs and usage examples. | file_read, AST parser | Docstring coverage; judge rubric |
-| 5 | Refactoring | 3 | Detects code smells and refactors while keeping tests green. | file_read, test_runner, ruff | Tests still pass; complexity drops |
+| 5 | Refactoring | 3 | Detects code smells and refactors while keeping tests green. | AST smell detector, pytest | Tests and hidden tests pass; public API unchanged; smells drop |
 
 ## Architecture
 

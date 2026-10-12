@@ -35,6 +35,7 @@ from agentforge.agents.doc_gen.docstrings import (
 )
 from agentforge.agents.doc_gen.schema import DocGenInput, DocGenOutput
 from agentforge.core.schemas import Contract
+from agentforge.evals.scoring import CaseScore, Check
 from agentforge.tools.pytest_runner import run_pytest
 from agentforge.tools.python_ast import definitions, has_docstring, parse, same_code
 
@@ -53,25 +54,6 @@ class EvalCase(Contract):
 
     def doc_input(self) -> DocGenInput:
         return DocGenInput.model_validate(self.input)
-
-
-class Check(Contract):
-    name: str
-    passed: bool
-    detail: str = ""
-
-
-class CaseScore(Contract):
-    case: str
-    checks: list[Check]
-
-    @property
-    def passed(self) -> bool:
-        return all(c.passed for c in self.checks)
-
-    @property
-    def score(self) -> float:
-        return sum(c.passed for c in self.checks) / len(self.checks) if self.checks else 0.0
 
 
 def load_cases() -> list[EvalCase]:

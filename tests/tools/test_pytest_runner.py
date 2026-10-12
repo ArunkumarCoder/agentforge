@@ -1,10 +1,11 @@
 """The shared pytest runner: isolation, timeouts, coverage, extra pytest options."""
 
 import os
+from pathlib import Path
 
 import pytest
 
-from agentforge.tools.pytest_runner import run_pytest
+from agentforge.tools.pytest_runner import run_pytest, shadow_files
 
 CALC = "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n"
 
@@ -57,3 +58,20 @@ async def test_runner_hides_secrets_and_enforces_a_timeout(monkeypatch: pytest.M
 async def test_runner_refuses_paths_outside_the_project() -> None:
     with pytest.raises(ValueError, match="outside the project"):
         await run_pytest(files={"../x.py": ""}, tests=[], measure=None)
+
+
+def test_shadow_files_adds_the_packages_above_the_target(tmp_path: Path) -> None:
+    (tmp_path / "pkg" / "sub").mkdir(parents=True)
+    (tmp_path / "pkg" / "__init__.py").write_text("A = 1\n")
+    (tmp_path / "pkg" / "sub" / "__init__.py").write_text("B = 2\n")
+    files = shadow_files(tmp_path, "pkg/sub/mod.py", "NEW = 1\n")
+    assert files == {
+        "pkg/sub/mod.py": "NEW = 1\n",
+        "pkg/sub/__init__.py": "B = 2\n",
+        "pkg/__init__.py": "A = 1\n",
+    }
+
+
+def test_shadow_files_skips_missing_inits_and_top_level_targets(tmp_path: Path) -> None:
+    assert shadow_files(tmp_path, "mod.py", "x = 1\n") == {"mod.py": "x = 1\n"}
+    assert shadow_files(tmp_path, "nopkg/mod.py", "x = 1\n") == {"nopkg/mod.py": "x = 1\n"}

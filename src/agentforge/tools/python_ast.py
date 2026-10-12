@@ -134,6 +134,75 @@ def same_code(before: str, after: str) -> bool:
     return without_docstrings(parse(before)) == without_docstrings(parse(after))
 
 
+# --------------------------------------------------------------------------- public API
+
+
+def public_api(tree: ast.Module) -> dict[str, str]:
+    """What other code can depend on: public names mapped to a description of their shape.
+
+    Functions and methods map to their signature (``(a, b=..., *, c)``: names,
+    kinds and which parameters have defaults, not the default values), classes
+    to their bases, and module-level assignments to ``"variable"``. Two sources
+    with equal ``public_api`` can be swapped without breaking callers, however
+    differently they are written inside.
+    """
+    api: dict[str, str] = {}
+    for d in definitions(tree):
+        if not d.public or d.kind == "module":
+            continue
+        node = d.node
+        if isinstance(node, ast.ClassDef):
+            api[d.qualname] = "class(" + ", ".join(ast.unparse(b) for b in node.bases) + ")"
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            prefix = "async " if isinstance(node, ast.AsyncFunctionDef) else ""
+            api[d.qualname] = prefix + _signature(node)
+    for statement in tree.body:
+        targets: list[ast.expr] = []
+        if isinstance(statement, ast.Assign):
+            targets = list(statement.targets)
+        elif isinstance(statement, ast.AnnAssign):
+            targets = [statement.target]
+        for target in targets:
+            if isinstance(target, ast.Name) and not target.id.startswith("_"):
+                api.setdefault(target.id, "variable")
+    return api
+
+
+def _signature(func: FunctionNode) -> str:
+    args = func.args
+    positional = [*args.posonlyargs, *args.args]
+    defaults = len(args.defaults)
+    parts: list[str] = []
+    for i, arg in enumerate(positional):
+        has_default = i >= len(positional) - defaults
+        parts.append(arg.arg + ("=..." if has_default else ""))
+        if i == len(args.posonlyargs) - 1:
+            parts.append("/")
+    if args.vararg:
+        parts.append("*" + args.vararg.arg)
+    elif args.kwonlyargs:
+        parts.append("*")
+    for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True):
+        parts.append(arg.arg + ("=..." if default is not None else ""))
+    if args.kwarg:
+        parts.append("**" + args.kwarg.arg)
+    return "(" + ", ".join(parts) + ")"
+
+
+def api_changes(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    """Differences that would break callers: removed names and changed shapes.
+
+    New public names are fine. Returns short sentences, empty when compatible.
+    """
+    changes = []
+    for name, shape in before.items():
+        if name not in after:
+            changes.append(f"{name} was removed")
+        elif after[name] != shape:
+            changes.append(f"{name} changed from {shape} to {after[name]}")
+    return changes
+
+
 # --------------------------------------------------------------------------- function facts
 
 

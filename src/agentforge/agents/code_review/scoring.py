@@ -29,6 +29,7 @@ from agentforge.agents.code_review.schema import (
     Verdict,
 )
 from agentforge.core.schemas import Contract
+from agentforge.evals.scoring import CaseScore, Check
 
 LINE_TOLERANCE = 3
 
@@ -56,25 +57,6 @@ class EvalCase(Contract):
 
     def review_input(self) -> ReviewInput:
         return ReviewInput.model_validate(self.input)
-
-
-class Check(Contract):
-    name: str
-    passed: bool
-    detail: str = ""
-
-
-class CaseScore(Contract):
-    case: str
-    checks: list[Check]
-
-    @property
-    def passed(self) -> bool:
-        return all(c.passed for c in self.checks)
-
-    @property
-    def score(self) -> float:
-        return sum(c.passed for c in self.checks) / len(self.checks) if self.checks else 0.0
 
 
 def load_cases() -> list[EvalCase]:

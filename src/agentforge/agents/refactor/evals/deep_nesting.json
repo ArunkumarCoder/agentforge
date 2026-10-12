@@ -1,0 +1,19 @@
+{
+  "name": "deep_nesting",
+  "description": "Five levels of nested ifs; guard clauses flatten it. One quirk must survive: insurance only applies to express.",
+  "input": {
+    "target": "shipping/rates.py",
+    "files": {
+      "shipping/rates.py": "ZONES = {\"NL\": 1, \"DE\": 2, \"US\": 3}\nBASE = {1: 4.0, 2: 6.0, 3: 12.0}\nPER_KG = {1: 0.5, 2: 0.8, 3: 1.5}\n\n\ndef shipping_cost(weight_kg, destination, express=False, insured=False):\n    if weight_kg > 0:\n        if destination in ZONES:\n            zone = ZONES[destination]\n            if weight_kg <= 30:\n                cost = BASE[zone] + weight_kg * PER_KG[zone]\n                if express:\n                    cost *= 1.5\n                    if insured:\n                        cost += 10\n                return round(cost, 2)\n            else:\n                raise ValueError(\"too heavy\")\n        else:\n            raise ValueError(f\"unknown destination: {destination}\")\n    else:\n        raise ValueError(\"weight must be positive\")\n",
+      "tests/test_rates.py": "import pytest\n\nfrom shipping.rates import shipping_cost\n\n\ndef test_standard_and_express():\n    assert shipping_cost(2, \"NL\") == 5.0\n    assert shipping_cost(2, \"NL\", express=True) == 7.5\n\n\ndef test_errors():\n    with pytest.raises(ValueError, match=\"positive\"):\n        shipping_cost(0, \"NL\")\n    with pytest.raises(ValueError, match=\"unknown destination: FR\"):\n        shipping_cost(1, \"FR\")\n"
+    }
+  },
+  "expect": {
+    "fixed": [
+      "deep_nesting"
+    ],
+    "hidden_tests": {
+      "tests/test_hidden_rates.py": "import pytest\n\nfrom shipping.rates import shipping_cost\n\n\ndef test_insurance_only_applies_to_express():\n    assert shipping_cost(10, \"DE\", insured=True) == 14.0\n    assert shipping_cost(10, \"DE\", express=True, insured=True) == 31.0\n\n\ndef test_weight_limit_and_error_order():\n    assert shipping_cost(30, \"US\") == 57.0\n    with pytest.raises(ValueError, match=\"too heavy\"):\n        shipping_cost(31, \"US\")\n    with pytest.raises(ValueError, match=\"positive\"):  # checked before the destination\n        shipping_cost(-1, \"FR\")\n    with pytest.raises(ValueError, match=\"unknown destination\"):  # before the weight limit\n        shipping_cost(99, \"FR\")\n"
+    }
+  }
+}

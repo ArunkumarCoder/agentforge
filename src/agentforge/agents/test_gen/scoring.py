@@ -29,6 +29,7 @@ from pydantic import Field
 
 from agentforge.agents.test_gen.schema import GenerateTestsInput, GenerateTestsOutput, is_test_file
 from agentforge.core.schemas import Contract
+from agentforge.evals.scoring import CaseScore, Check
 from agentforge.tools.patching import apply_patch
 from agentforge.tools.pytest_runner import run_pytest
 
@@ -51,25 +52,6 @@ class EvalCase(Contract):
 
     def gen_input(self) -> GenerateTestsInput:
         return GenerateTestsInput.model_validate(self.input)
-
-
-class Check(Contract):
-    name: str
-    passed: bool
-    detail: str = ""
-
-
-class CaseScore(Contract):
-    case: str
-    checks: list[Check]
-
-    @property
-    def passed(self) -> bool:
-        return all(c.passed for c in self.checks)
-
-    @property
-    def score(self) -> float:
-        return sum(c.passed for c in self.checks) / len(self.checks) if self.checks else 0.0
 
 
 def load_cases() -> list[EvalCase]:

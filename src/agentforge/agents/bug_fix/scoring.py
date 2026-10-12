@@ -28,6 +28,7 @@ from pydantic import Field
 
 from agentforge.agents.bug_fix.schema import BugFixInput, BugFixOutput
 from agentforge.core.schemas import Contract
+from agentforge.evals.scoring import CaseScore, Check
 from agentforge.tools.patching import PatchError, apply_patch
 
 CHECK_TIMEOUT_S = 20.0
@@ -47,25 +48,6 @@ class EvalCase(Contract):
 
     def fix_input(self) -> BugFixInput:
         return BugFixInput.model_validate(self.input)
-
-
-class Check(Contract):
-    name: str
-    passed: bool
-    detail: str = ""
-
-
-class CaseScore(Contract):
-    case: str
-    checks: list[Check]
-
-    @property
-    def passed(self) -> bool:
-        return all(c.passed for c in self.checks)
-
-    @property
-    def score(self) -> float:
-        return sum(c.passed for c in self.checks) / len(self.checks) if self.checks else 0.0
 
 
 def load_cases() -> list[EvalCase]:

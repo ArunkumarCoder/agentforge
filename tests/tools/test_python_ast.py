@@ -6,6 +6,7 @@ import pytest
 
 from agentforge.tools.python_ast import (
     PythonSourceError,
+    api_changes,
     cyclomatic_complexity,
     definitions,
     docstring_coverage,
@@ -14,6 +15,7 @@ from agentforge.tools.python_ast import (
     max_nesting,
     parameters,
     parse,
+    public_api,
     raised_exceptions,
     returns_value,
     same_code,
@@ -135,3 +137,41 @@ def test_same_code_ignores_docstrings_comments_and_layout() -> None:
 def test_syntax_errors_are_reported_with_the_line() -> None:
     with pytest.raises(PythonSourceError, match=r"mod\.py: line 1"):
         parse("def (:\n", "mod.py")
+
+
+API = """
+LIMIT = 3
+_private = 1
+
+
+class Cart(Base):
+    def add(self, item, qty=1, *, note=None): ...
+    def _hidden(self): ...
+
+
+async def fetch(url, *args, **kw): ...
+def _helper(): ...
+"""
+
+
+def test_public_api_describes_shapes_not_bodies() -> None:
+    api = public_api(parse(API))
+    assert api["LIMIT"] == "variable"
+    assert api["Cart"] == "class(Base)"
+    assert api["Cart.add"] == "(self, item, qty=..., *, note=...)"
+    assert api["fetch"].startswith("async (url")
+    assert not any(name.startswith("_") or "._" in name for name in api)
+
+
+def test_api_changes_ignore_bodies_defaults_and_additions() -> None:
+    before = public_api(parse("def f(a, b=1):\n    return a\n"))
+    after = public_api(parse("def f(a, b=2):\n    return b\n\n\ndef g():\n    pass\n"))
+    assert api_changes(before, after) == []
+
+
+def test_api_changes_report_removals_and_new_shapes() -> None:
+    before = public_api(parse("def f(a):\n    pass\n\n\ndef g():\n    pass\n"))
+    after = public_api(parse("def f(a, b):\n    pass\n"))
+    changes = api_changes(before, after)
+    assert any(c.startswith("f changed") for c in changes)
+    assert "g was removed" in changes

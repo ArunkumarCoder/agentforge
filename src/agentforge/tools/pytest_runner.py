@@ -98,6 +98,22 @@ def coverage_available() -> bool:
     return importlib.util.find_spec("coverage") is not None
 
 
+def shadow_files(root: Path, target: str, content: str) -> dict[str, str]:
+    """Files that make ``content`` stand in for ``root/target`` when a repo is on the path.
+
+    Returns the target plus the ``__init__.py`` of each package above it, read
+    from the repository. Without those, Python would find the repository's
+    regular package first and import the original module, not the replacement.
+    """
+    files = {target: content}
+    parts = Path(target).parent.parts
+    for depth in range(len(parts), 0, -1):
+        init = "/".join((*parts[:depth], "__init__.py"))
+        if (root / init).is_file():
+            files[init] = (root / init).read_text(encoding="utf-8")
+    return files
+
+
 def _safe_env() -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if k.upper() in _ENV_KEYS}
     env["PYTHONIOENCODING"] = "utf-8"  # ignored by -I for config, but harmless

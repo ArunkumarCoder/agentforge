@@ -1,0 +1,19 @@
+{
+  "name": "nested_loops_in_class",
+  "description": "A method with loops inside loops inside conditions (4 levels).",
+  "input": {
+    "target": "stock/report.py",
+    "files": {
+      "stock/report.py": "class StockReport:\n    def __init__(self, warehouses):\n        self.warehouses = warehouses\n\n    def low_stock(self, threshold=5):\n        result = {}\n        for warehouse, stock in self.warehouses.items():\n            for sku, qty in stock.items():\n                if qty < threshold:\n                    if sku not in result:\n                        result[sku] = []\n                    if qty == 0:\n                        result[sku].append((warehouse, \"out\"))\n                    else:\n                        result[sku].append((warehouse, \"low\"))\n        return result\n\n    def total(self, sku):\n        return sum(stock.get(sku, 0) for stock in self.warehouses.values())\n",
+      "tests/test_report.py": "from stock.report import StockReport\n\nDATA = {\"north\": {\"pen\": 2, \"cup\": 9}, \"south\": {\"pen\": 0, \"cup\": 7}}\n\n\ndef test_low_stock():\n    assert StockReport(DATA).low_stock() == {\"pen\": [(\"north\", \"low\"), (\"south\", \"out\")]}\n\n\ndef test_total():\n    assert StockReport(DATA).total(\"cup\") == 16\n"
+    }
+  },
+  "expect": {
+    "fixed": [
+      "deep_nesting"
+    ],
+    "hidden_tests": {
+      "tests/test_hidden_report.py": "from stock.report import StockReport\n\n\ndef test_threshold_and_order():\n    data = {\"a\": {\"x\": 1, \"y\": 3}, \"b\": {\"y\": 0, \"z\": 4}}\n    report = StockReport(data)\n    assert report.low_stock(4) == {\"x\": [(\"a\", \"low\")], \"y\": [(\"a\", \"low\"), (\"b\", \"out\")]}\n    assert report.low_stock(0) == {}\n    assert list(report.low_stock(10)) == [\"x\", \"y\", \"z\"]\n"
+    }
+  }
+}
