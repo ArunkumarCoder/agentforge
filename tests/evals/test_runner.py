@@ -208,7 +208,14 @@ async def test_reports_are_saved_as_json(tmp_path: Path) -> None:
 def test_every_agent_with_cases_has_a_suite() -> None:
     registry.discover()
     suites = all_suites()
-    assert sorted(suites) == ["bug-fix", "code-review", "doc-gen", "refactor", "test-gen"]
+    assert sorted(suites) == [
+        "api-design",
+        "bug-fix",
+        "code-review",
+        "doc-gen",
+        "refactor",
+        "test-gen",
+    ]
     for name, suite in suites.items():
         cases = suite.load_cases()
         assert len(cases) == 5

@@ -16,7 +16,7 @@ All 25 agents, grouped by category. The week column is when each is built. Every
 
 | # | Agent | Week | Purpose | Key tools | Validated by |
 |---|---|---|---|---|---|
-| 6 | API Design | 4 | Requirements → OpenAPI 3.1 spec with schemas and errors. | openapi-spec-validator | Spec validates |
+| 6 | API Design | 4 | Requirements → OpenAPI 3.1 spec with schemas and errors. | openapi-spec-validator | Spec validates; required operations, fields and status codes present |
 | 7 | Database Schema | 4 | Entities → ERD, DDL and SQLAlchemy models. | SQL executor (test DB) | DDL executes on Postgres |
 | 8 | Security Audit | 4 | Static scan + LLM triage into prioritized, deduplicated findings. | bandit, semgrep | Seeded vulnerabilities found |
 | 9 | Performance | 4 | Analyzes profiles/code for hotspots and complexity issues. | cProfile reader, radon | Known hotspots identified |

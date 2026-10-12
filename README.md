@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 3 complete. Five real agents are in: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation** and **Refactoring**, each checked against reality (patches are applied, tests are run, syntax trees are compared) rather than trusted. A minimal eval runner scores their golden cases with `agentforge eval run`. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. Week 4 adds agents 6–10 and a basic API.
+> **Status:** Week 4 in progress. Six real agents are in: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring** and now **API Design**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. Next: Database Schema, Security Audit, Performance, Migration and a basic API.
 
 ## Quick start (dev)
 
@@ -46,6 +46,7 @@ On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put i
 | 3 | Test Generation | `test-gen` | Writes a pytest file for a module, runs it, feeds failures back until the tests pass, and reports coverage before and after |
 | 4 | Documentation | `doc-gen` | Writes docstrings (Google, NumPy or Sphinx style) and a usage guide for a module, without changing any code; runs the `>>>` examples |
 | 5 | Refactoring | `refactor` | Finds code smells (deep nesting, long or complex functions, duplicate blocks, long parameter lists), rewrites a module to remove them, and only returns it if the public API is unchanged and the tests still pass |
+| 6 | API Design | `api-design` | Turns requirements into an OpenAPI 3.1 spec that validates against the official schema and follows design rules (operationIds, error responses, auth, pagination) |
 
 ```bash
 # review your own uncommitted changes (needs a real provider in .env)
@@ -60,6 +61,9 @@ uv run agentforge agents run test-gen -d '{"repo_path": ".", "target": "src/agen
 # document a module (prints the documented source; your file is not changed)
 uv run agentforge agents run doc-gen -d '{"repo_path": ".", "target": "src/agentforge/tools/patching.py", "readme": false}'
 
+# design an API from a description (prints the spec as YAML)
+uv run agentforge agents run api-design -d '{"requirements": "A to-do service: tasks have a title and a done flag; list, create, update and delete them.", "auth": "bearer", "pagination": "offset"}'
+
 # refactor a module that has tests (prints the diff; your file is not changed)
 uv run agentforge agents run refactor -d '{"repo_path": ".", "target": "src/agentforge/tools/patching.py"}'
 ```
@@ -71,6 +75,8 @@ The Bug Fix agent never hands back a patch it hasn't tried. Its patch is applied
 The Test Generation agent only returns tests that have passed. It runs them with pytest and, on failure, sends pytest's output back to the model, up to `max_attempts` runs (default 3). The output includes the final run (tests, failures, coverage of the target) and the coverage from any existing tests you passed in. Tests run in a temporary directory with a separate `python -I`, a minimal environment (no API keys) and a timeout. That is careful, but it is not a sandbox: only run it on code you trust. Its 5 golden cases are scored on coverage and on **mutants**, small deliberate bugs the tests must catch, so tests that merely call the code do not pass.
 
 The Documentation agent cannot change your code: the model sends docstrings by name, AgentForge places them, and the syntax trees before and after must match apart from docstrings. Every public definition must end up documented, and each new docstring must pass a rubric (every parameter described, every exception the function raises named, a Returns or Yields section where needed, a one-line summary). `>>>` examples are run as doctests. Problems go back to the model up to twice. Its 5 golden cases cover all three styles, classes, generators and a partly documented module.
+
+The API Design agent returns a spec that has been validated, not just written. The model's YAML is checked with the official OpenAPI 3.1 schema (`openapi-spec-validator`, which also resolves every `$ref`), then linted: every operation needs a unique `operationId`, a summary, a success response and an error response; every path parameter is declared; `GET` and `DELETE` have no body; the security scheme you asked for exists and covers every endpoint (public ones say `security: []`); and every list endpoint takes your chosen pagination parameters. Problems go back to the model up to twice, with the exact location. Style findings (verb-like paths, missing tags, unused schemas) come back as `warnings` without blocking. The returned `spec` is canonical YAML. Its 5 golden cases (tasks, bookstore, accounts, documents and orders) check that every required operation, field, status code, enum and media type is in the spec, and that it does not wander beyond what was asked.
 
 The Refactoring agent changes how code is written, never what it does. It measures smells with the syntax tree first (and skips the model when there are none), refuses to touch a module without tests unless you pass `allow_untested`, and runs the tests before the model sees anything. Then it holds the rewrite to four checks: it parses, every public name keeps its signature, the smells actually went down, and the tests still pass. A failed check goes back to the model with the details, up to twice. Its 5 golden cases are scored with the same checks plus hidden tests the model never sees, so a rewrite that quietly changes behaviour fails.
 

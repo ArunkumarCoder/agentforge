@@ -1,0 +1,41 @@
+{
+  "name": "bookstore",
+  "description": "Authors and books with nested listing, ISBN as the key, no auth and cursor pagination.",
+  "input": {
+    "title": "Bookstore API",
+    "auth": "none",
+    "pagination": "cursor",
+    "requirements": "A public bookstore catalogue. Authors have an id, a name and an optional born year. Books are identified by their isbn and have a title, an author_id and a price (not negative). Clients can list and create authors, fetch one author, list the books of one author, list and create books, fetch a book by isbn and replace a book."
+  },
+  "expect": {
+    "operations": [
+      "GET /authors",
+      "POST /authors",
+      "GET /authors/{id}",
+      "GET /authors/{id}/books",
+      "GET /books",
+      "POST /books",
+      "GET /books/{isbn}",
+      "PUT /books/{isbn}"
+    ],
+    "fields": {
+      "POST /books": {
+        "request": [
+          "isbn",
+          "title",
+          "author_id",
+          "price"
+        ]
+      },
+      "POST /authors": {
+        "request": [
+          "name"
+        ]
+      }
+    },
+    "statuses": {
+      "POST /authors": "201",
+      "POST /books": "201"
+    }
+  }
+}

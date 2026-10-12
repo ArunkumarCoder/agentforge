@@ -1,0 +1,43 @@
+{
+  "name": "tasks",
+  "description": "A to-do API with CRUD, a completion action, filtering, bearer auth and offset pagination.",
+  "input": {
+    "title": "Task API",
+    "auth": "bearer",
+    "pagination": "offset",
+    "requirements": "A to-do list service. A task has a title (required, up to 200 characters), a done flag (false when created), an optional due_date (a date) and a server-generated id (UUID). Users can list tasks (filterable by done), create a task, fetch one, update any of title, done or due_date, delete one, and mark a task as complete with one call."
+  },
+  "expect": {
+    "operations": [
+      "GET /tasks",
+      "POST /tasks",
+      "GET /tasks/{id}",
+      "PATCH /tasks/{id}",
+      "DELETE /tasks/{id}",
+      "POST /tasks/{id}/complete"
+    ],
+    "fields": {
+      "POST /tasks": {
+        "request": [
+          "title",
+          "due_date"
+        ],
+        "response": [
+          "id",
+          "title",
+          "done"
+        ]
+      },
+      "GET /tasks/{id}": {
+        "response": [
+          "id",
+          "due_date"
+        ]
+      }
+    },
+    "statuses": {
+      "POST /tasks": "201",
+      "DELETE /tasks/{id}": "204"
+    }
+  }
+}

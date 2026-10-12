@@ -35,6 +35,7 @@ class Suite:
 
 def all_suites() -> dict[str, Suite]:
     """Every shipped suite by agent name. Imports are lazy to keep startup and cycles light."""
+    from agentforge.agents.api_design import scoring as api_design
     from agentforge.agents.bug_fix import scoring as bug_fix
     from agentforge.agents.code_review import scoring as code_review
     from agentforge.agents.doc_gen import scoring as doc_gen
@@ -42,6 +43,7 @@ def all_suites() -> dict[str, Suite]:
     from agentforge.agents.test_gen import scoring as test_gen
 
     suites = [
+        Suite("api-design", api_design.load_cases, lambda c: c.design_input(), api_design.score),
         Suite("code-review", code_review.load_cases, lambda c: c.review_input(), code_review.score),
         Suite("bug-fix", bug_fix.load_cases, lambda c: c.fix_input(), bug_fix.score),
         Suite("test-gen", test_gen.load_cases, lambda c: c.gen_input(), test_gen.score),

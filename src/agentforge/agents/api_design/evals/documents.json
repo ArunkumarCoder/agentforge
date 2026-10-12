@@ -1,0 +1,43 @@
+{
+  "name": "documents",
+  "description": "PDF upload (multipart) and download (binary) with an API key.",
+  "input": {
+    "title": "Document Store API",
+    "auth": "api_key",
+    "pagination": "none",
+    "requirements": "A document store. A client uploads a PDF together with a title (as a multipart form with the fields file and title). A document has an id, a title, a size_bytes and an uploaded_at timestamp. Clients can list documents, fetch a document's details, download the PDF itself from /documents/{id}/content, and delete a document."
+  },
+  "expect": {
+    "operations": [
+      "GET /documents",
+      "POST /documents",
+      "GET /documents/{id}",
+      "GET /documents/{id}/content",
+      "DELETE /documents/{id}"
+    ],
+    "fields": {
+      "GET /documents/{id}": {
+        "response": [
+          "id",
+          "title",
+          "size_bytes",
+          "uploaded_at"
+        ]
+      },
+      "POST /documents": {
+        "request": [
+          "file",
+          "title"
+        ]
+      }
+    },
+    "media": {
+      "POST /documents": "multipart/form-data",
+      "GET /documents/{id}/content": "application/pdf"
+    },
+    "statuses": {
+      "POST /documents": "201",
+      "DELETE /documents/{id}": "204"
+    }
+  }
+}

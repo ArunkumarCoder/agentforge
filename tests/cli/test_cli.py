@@ -117,7 +117,10 @@ class TestRun:
         result = runner.invoke(app, ["agents", "run", "nope"])
         assert result.exit_code == EXIT_USAGE
         message = " ".join(result.stderr.split())  # Rich wraps long lines at the terminal width
-        assert "available: bug-fix, code-review, doc-gen, echo, refactor, test-gen" in message
+        assert (
+            "available: api-design, bug-fix, code-review, doc-gen, echo, refactor, test-gen"
+            in message
+        )
 
     def test_default_input_is_empty_object(self) -> None:
         result = runner.invoke(app, ["agents", "run", "echo"])
@@ -216,7 +219,14 @@ class TestEval:
         result = runner.invoke(app, ["eval", "list", "--json"])
         assert result.exit_code == 0
         suites = json.loads(result.stdout)
-        assert set(suites) == {"bug-fix", "code-review", "doc-gen", "refactor", "test-gen"}
+        assert set(suites) == {
+            "api-design",
+            "bug-fix",
+            "code-review",
+            "doc-gen",
+            "refactor",
+            "test-gen",
+        }
         assert all(len(cases) == 5 for cases in suites.values())
 
     def test_list_table(self) -> None:

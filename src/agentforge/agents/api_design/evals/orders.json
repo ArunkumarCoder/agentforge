@@ -1,0 +1,43 @@
+{
+  "name": "orders",
+  "description": "Orders with a status enum, a status filter and two state transitions, bearer auth and cursor pagination.",
+  "input": {
+    "title": "Orders API",
+    "auth": "bearer",
+    "pagination": "cursor",
+    "requirements": "An order service. An order has an id, a list of items (each with a sku, a quantity of at least 1 and an optional unit_price), a total and a status that is one of pending, paid, shipped or cancelled. Customers place an order, fetch one, list their orders (filterable by status) and list the items of an order. An order can be cancelled with POST /orders/{orderId}/cancel and marked shipped with POST /orders/{orderId}/ship."
+  },
+  "expect": {
+    "operations": [
+      "GET /orders",
+      "POST /orders",
+      "GET /orders/{id}",
+      "GET /orders/{id}/items",
+      "POST /orders/{id}/cancel",
+      "POST /orders/{id}/ship"
+    ],
+    "fields": {
+      "POST /orders": {
+        "request": [
+          "items"
+        ],
+        "response": [
+          "id",
+          "status",
+          "total"
+        ]
+      }
+    },
+    "statuses": {
+      "POST /orders": "201"
+    },
+    "enums": [
+      [
+        "pending",
+        "paid",
+        "shipped",
+        "cancelled"
+      ]
+    ]
+  }
+}
