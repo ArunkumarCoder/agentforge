@@ -1,0 +1,59 @@
+{
+  "name": "data_loader",
+  "description": "Loading and hashing: pickle and yaml.load on untrusted data, md5 for passwords, predictable reset tokens, and decoys (safe_load, md5 for a cache key, random jitter).",
+  "input": {
+    "files": {
+      "loader/io.py": "import hashlib\nimport pickle\nimport random\nimport time\n\nimport yaml\n\n\ndef load_session(blob):\n    return pickle.loads(blob)\n\n\ndef load_settings(text):\n    return yaml.load(text, Loader=yaml.Loader)\n\n\ndef load_safe_settings(text):\n    return yaml.safe_load(text)\n\n\ndef hash_password(password):\n    return hashlib.md5(password.encode()).hexdigest()\n\n\ndef cache_key(payload):\n    return hashlib.md5(payload, usedforsecurity=False).hexdigest()\n\n\ndef reset_token():\n    return \"\".join(random.choice(\"abcdef0123456789\") for _ in range(8))\n\n\ndef retry_delay(attempt):\n    return min(30, 2**attempt) + random.random()\n\n\ndef wait(attempt):\n    time.sleep(retry_delay(attempt))\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "loader/io.py",
+        "line": 10,
+        "category": [
+          "insecure_deserialization"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "loader/io.py",
+        "line": 14,
+        "category": [
+          "insecure_deserialization"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "loader/io.py",
+        "line": 22,
+        "category": [
+          "weak_crypto"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "loader/io.py",
+        "line": 30,
+        "category": [
+          "weak_crypto"
+        ],
+        "min_severity": "medium"
+      }
+    ],
+    "safe": [
+      {
+        "file": "loader/io.py",
+        "line": 18
+      },
+      {
+        "file": "loader/io.py",
+        "line": 26
+      },
+      {
+        "file": "loader/io.py",
+        "line": 34
+      }
+    ]
+  }
+}

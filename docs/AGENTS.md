@@ -18,7 +18,7 @@ All 25 agents, grouped by category. The week column is when each is built. Every
 |---|---|---|---|---|---|
 | 6 | API Design | 4 | Requirements → OpenAPI 3.1 spec with schemas and errors. | openapi-spec-validator | Spec validates; required operations, fields and status codes present |
 | 7 | Database Schema | 4 | Entities → ERD, DDL and SQLAlchemy models. | pglast (Postgres parser), psql | DDL parses and, with a server configured, executes on Postgres; models match the DDL |
-| 8 | Security Audit | 4 | Static scan + LLM triage into prioritized, deduplicated findings. | bandit, semgrep | Seeded vulnerabilities found |
+| 8 | Security Audit | 4 | Static scan + LLM triage into prioritized, deduplicated findings. | bandit, secrets scanner | Seeded vulnerabilities found, decoys dismissed, additions backed by quoted code |
 | 9 | Performance | 4 | Analyzes profiles/code for hotspots and complexity issues. | cProfile reader, radon | Known hotspots identified |
 | 10 | Migration | 4 | Plans and drafts framework/version migrations. | file_read, dependency parser | Judge rubric + compiles |
 

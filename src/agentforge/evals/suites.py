@@ -41,6 +41,7 @@ def all_suites() -> dict[str, Suite]:
     from agentforge.agents.db_schema import scoring as db_schema
     from agentforge.agents.doc_gen import scoring as doc_gen
     from agentforge.agents.refactor import scoring as refactor
+    from agentforge.agents.security_audit import scoring as security_audit
     from agentforge.agents.test_gen import scoring as test_gen
 
     suites = [
@@ -51,5 +52,11 @@ def all_suites() -> dict[str, Suite]:
         Suite("test-gen", test_gen.load_cases, lambda c: c.gen_input(), test_gen.score),
         Suite("doc-gen", doc_gen.load_cases, lambda c: c.doc_input(), doc_gen.score),
         Suite("refactor", refactor.load_cases, lambda c: c.refactor_input(), refactor.score),
+        Suite(
+            "security-audit",
+            security_audit.load_cases,
+            lambda c: c.audit_input(),
+            security_audit.score,
+        ),
     ]
     return {s.agent: s for s in sorted(suites, key=lambda s: s.agent)}

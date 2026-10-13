@@ -1,0 +1,39 @@
+{
+  "name": "cli_tool",
+  "description": "A command line helper: shell injection and eval on user input, next to a list-form subprocess call and literal_eval that are fine.",
+  "input": {
+    "files": {
+      "tools/runner.py": "import ast\nimport subprocess\n\n\ndef ping(host):\n    return subprocess.run(\"ping -c 1 \" + host, shell=True, capture_output=True)\n\n\ndef git_status(repo):\n    return subprocess.run([\"git\", \"-C\", repo, \"status\", \"--short\"], capture_output=True, check=True)\n\n\ndef calculate(expression):\n    return eval(expression)\n\n\ndef parse_literal(text):\n    return ast.literal_eval(text)\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "tools/runner.py",
+        "line": 6,
+        "category": [
+          "command_injection"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "tools/runner.py",
+        "line": 14,
+        "category": [
+          "code_injection"
+        ],
+        "min_severity": "high"
+      }
+    ],
+    "safe": [
+      {
+        "file": "tools/runner.py",
+        "line": 10
+      },
+      {
+        "file": "tools/runner.py",
+        "line": 18
+      }
+    ]
+  }
+}

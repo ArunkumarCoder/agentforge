@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 4 in progress. Seven real agents are in: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design** and now **Database Schema**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. Next: Security Audit, Performance, Migration and a basic API.
+> **Status:** Week 4 in progress. Eight real agents are in: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema** and now **Security Audit**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. Next: Performance, Migration and a basic API.
 
 ## Quick start (dev)
 
@@ -48,6 +48,7 @@ On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put i
 | 5 | Refactoring | `refactor` | Finds code smells (deep nesting, long or complex functions, duplicate blocks, long parameter lists), rewrites a module to remove them, and only returns it if the public API is unchanged and the tests still pass |
 | 6 | API Design | `api-design` | Turns requirements into an OpenAPI 3.1 spec that validates against the official schema and follows design rules (operationIds, error responses, auth, pagination) |
 | 7 | Database Schema | `db-schema` | Turns entity descriptions into PostgreSQL DDL (parsed by Postgres's own parser, linted, optionally run on a real server), SQLAlchemy 2.0 models that must match it, and a Mermaid ER diagram |
+| 8 | Security Audit | `security-audit` | Runs bandit and a secrets scanner, then has the model triage every finding (real or false positive, real severity, concrete fix) and add what scanners miss; each addition must quote the code, and the report is merged, de-duplicated and sorted by risk |
 
 ```bash
 # review your own uncommitted changes (needs a real provider in .env)
@@ -68,6 +69,9 @@ uv run agentforge agents run api-design -d '{"requirements": "A to-do service: t
 # design a PostgreSQL schema (prints DDL, SQLAlchemy models and a Mermaid ER diagram)
 uv run agentforge agents run db-schema -d '{"requirements": "A library: books (title, isbn unique), members (name, email unique), and loans linking a member to a book with a due date."}'
 
+# audit code for vulnerabilities (read-only: bandit and a secrets scan, then triage)
+uv run agentforge agents run security-audit -d '{"repo_path": ".", "paths": ["src"], "min_severity": "medium"}'
+
 # refactor a module that has tests (prints the diff; your file is not changed)
 uv run agentforge agents run refactor -d '{"repo_path": ".", "target": "src/agentforge/tools/patching.py"}'
 ```
@@ -85,6 +89,8 @@ The API Design agent returns a spec that has been validated, not just written. T
 The Database Schema agent returns a schema that has been checked, not just written. The DDL goes through PostgreSQL's own parser (`pglast`), and only schema definitions are accepted (`DROP`, `INSERT`, `GRANT` and transactions are refused, so a model-written script can never change data). Then rules: every table has a primary key, every foreign key points at a real, unique, same-typed column in a table created **earlier**, and every type is a known one. The SQLAlchemy models are imported in a separate `python -I` process and must match the DDL table by table: columns, nullability, primary keys and foreign keys. The ER diagram is generated from the checked DDL, so it cannot disagree with it. Problems go back to the model up to twice. Style findings (`timestamp` without time zone, `float` for money, unindexed foreign keys) come back as `warnings`.
 
 For the strongest check, point `AGENTFORGE_CHECK_DATABASE_URL` at a **scratch** PostgreSQL database (and have `psql` installed): the DDL is then also run on that server inside a throw-away schema and rolled back, and the output says `executed: true`. The server's own error message goes back to the model if it rejects the DDL. Without the variable the step is skipped and `executed` is `null`. CI runs these checks against a PostgreSQL 16 service. Its 5 golden cases (blog, shop, school, booking and multi-tenant SaaS) check tables, columns, foreign keys, uniqueness, `CHECK` constraints, types, nullability and enums.
+
+The Security Audit agent never runs the code it reads. Bandit runs in a separate process on a temporary copy, and a small secrets scanner covers `.env`, YAML and JSON files (placeholders such as `changeme` are ignored, and secrets are redacted in the report). Every scanner finding is numbered `S1`, `S2`, and the model must triage **each one**: confirmed (with a concrete fix), false positive (with the reason it is safe) or needs review. A finding the scanner rates high severity with high confidence cannot be dismissed. The model may also report vulnerabilities scanners cannot see, such as path traversal, SSRF or a missing ownership check, but each one needs a quote that really appears within three lines of the cited line, and it may not repeat a scanner finding. Anything that fails goes back to the model up to twice. AgentForge then builds the report itself: merged by file, line and category, sorted by severity, with false positives listed separately and an overall `risk`.
 
 The Refactoring agent changes how code is written, never what it does. It measures smells with the syntax tree first (and skips the model when there are none), refuses to touch a module without tests unless you pass `allow_untested`, and runs the tests before the model sees anything. Then it holds the rewrite to four checks: it parses, every public name keeps its signature, the smells actually went down, and the tests still pass. A failed check goes back to the model with the details, up to twice. Its 5 golden cases are scored with the same checks plus hidden tests the model never sees, so a rewrite that quietly changes behaviour fails.
 

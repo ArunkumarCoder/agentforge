@@ -1,0 +1,35 @@
+{
+  "name": "auth_service",
+  "description": "Authentication code: a hardcoded password and JWT secret, a missing ownership check (IDOR), plus decoys bandit flags by name only.",
+  "input": {
+    "files": {
+      "auth/service.py": "import hmac\n\nADMIN_PASSWORD = \"Sup3r-Secret-Adm1n!\"\nRESET_TOKEN_HEADER = \"X-Reset-Token\"\nMIN_PASSWORD_LENGTH = 12\n\n\ndef login(users, name, password):\n    user = users.get(name)\n    if user and hmac.compare_digest(user[\"password_hash\"], password):\n        return user\n    return None\n\n\ndef get_invoice(db, current_user, invoice_id):\n    return db.invoices.get(invoice_id)\n\n\ndef delete_account(db, current_user, account_id):\n    if current_user[\"id\"] != account_id:\n        raise PermissionError(\"not your account\")\n    db.accounts.delete(account_id)\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "auth/service.py",
+        "line": 3,
+        "category": [
+          "hardcoded_secret"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "auth/service.py",
+        "line": 16,
+        "category": [
+          "authz"
+        ],
+        "min_severity": "high"
+      }
+    ],
+    "safe": [
+      {
+        "file": "auth/service.py",
+        "line": 4
+      }
+    ]
+  }
+}

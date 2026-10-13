@@ -215,6 +215,7 @@ def test_every_agent_with_cases_has_a_suite() -> None:
         "db-schema",
         "doc-gen",
         "refactor",
+        "security-audit",
         "test-gen",
     ]
     for name, suite in suites.items():

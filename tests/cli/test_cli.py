@@ -119,7 +119,7 @@ class TestRun:
         message = " ".join(result.stderr.split())  # Rich wraps long lines at the terminal width
         assert (
             "available: api-design, bug-fix, code-review, db-schema, doc-gen, "
-            "echo, refactor, test-gen" in message
+            "echo, refactor, security-audit, test-gen" in message
         )
 
     def test_default_input_is_empty_object(self) -> None:
@@ -226,6 +226,7 @@ class TestEval:
             "db-schema",
             "doc-gen",
             "refactor",
+            "security-audit",
             "test-gen",
         }
         assert all(len(cases) == 5 for cases in suites.values())

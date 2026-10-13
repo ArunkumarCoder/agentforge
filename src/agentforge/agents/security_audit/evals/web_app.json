@@ -1,0 +1,51 @@
+{
+  "name": "web_app",
+  "description": "A small web app: SQL built by formatting (and a parameterised decoy), debug mode, a hardcoded session key and a path traversal no scanner sees.",
+  "input": {
+    "files": {
+      "app/views.py": "import os\nimport sqlite3\n\nfrom flask import Flask, request, send_file\n\napp = Flask(__name__)\nSESSION_SECRET = \"k9$Tz!w3Qp8vLm2xN7bR4cY6\"\nUPLOAD_DIR = \"/srv/uploads\"\nDB = sqlite3.connect(\"app.db\")\n\n\n@app.route(\"/users\")\ndef find_user():\n    name = request.args[\"name\"]\n    cur = DB.execute(\"SELECT id, email FROM users WHERE name = '%s'\" % name)\n    return {\"users\": cur.fetchall()}\n\n\n@app.route(\"/users/by-id\")\ndef user_by_id():\n    uid = request.args[\"id\"]\n    cur = DB.execute(\"SELECT id, email FROM users WHERE id = ?\", (uid,))\n    return {\"users\": cur.fetchall()}\n\n\n@app.route(\"/download\")\ndef download():\n    filename = request.args[\"file\"]\n    return send_file(os.path.join(UPLOAD_DIR, filename))\n\n\nif __name__ == \"__main__\":\n    app.run(debug=True)\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "app/views.py",
+        "line": 7,
+        "category": [
+          "hardcoded_secret"
+        ],
+        "min_severity": "medium"
+      },
+      {
+        "file": "app/views.py",
+        "line": 15,
+        "category": [
+          "sql_injection"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "app/views.py",
+        "line": 29,
+        "category": [
+          "path_traversal"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "app/views.py",
+        "line": 33,
+        "category": [
+          "misconfiguration"
+        ],
+        "min_severity": "medium"
+      }
+    ],
+    "safe": [
+      {
+        "file": "app/views.py",
+        "line": 22
+      }
+    ]
+  }
+}

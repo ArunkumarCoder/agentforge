@@ -1,0 +1,49 @@
+{
+  "name": "api_client",
+  "description": "An HTTP client: TLS verification off, a user-controlled URL (SSRF), a committed API key, and decoys (a call with a timeout and a placeholder in .env.example).",
+  "input": {
+    "files": {
+      "client/api.py": "import requests\n\nBASE = \"https://api.example.com/v1\"\n\n\ndef get_status():\n    return requests.get(BASE + \"/status\", timeout=10)\n\n\ndef get_report(token):\n    return requests.get(BASE + \"/report\", headers={\"Authorization\": token}, verify=False, timeout=10)\n\n\ndef fetch_preview(url):\n    return requests.get(url, timeout=10).text\n",
+      "config/settings.yaml": "service: reports\napi_key: \"7f3c9a1e84b2d65f0a9c13e7b8d2f4a6\"\nretries: 3\n",
+      ".env.example": "API_KEY=changeme\nDEBUG=false\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "client/api.py",
+        "line": 11,
+        "category": [
+          "insecure_transport"
+        ],
+        "min_severity": "high"
+      },
+      {
+        "file": "client/api.py",
+        "line": 15,
+        "category": [
+          "ssrf"
+        ],
+        "min_severity": "medium"
+      },
+      {
+        "file": "config/settings.yaml",
+        "line": 2,
+        "category": [
+          "hardcoded_secret"
+        ],
+        "min_severity": "medium"
+      }
+    ],
+    "safe": [
+      {
+        "file": "client/api.py",
+        "line": 7
+      },
+      {
+        "file": ".env.example",
+        "line": 1
+      }
+    ]
+  }
+}
