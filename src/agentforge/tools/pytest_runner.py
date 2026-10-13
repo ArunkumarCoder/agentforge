@@ -114,7 +114,7 @@ def shadow_files(root: Path, target: str, content: str) -> dict[str, str]:
     return files
 
 
-def _safe_env() -> dict[str, str]:
+def safe_env() -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if k.upper() in _ENV_KEYS}
     env["PYTHONIOENCODING"] = "utf-8"  # ignored by -I for config, but harmless
     return env
@@ -204,7 +204,7 @@ async def run_pytest(
             [sys.executable, "-I", str(script)],
             cwd=str(project),
             timeout_s=timeout_s,
-            env=_safe_env(),
+            env=safe_env(),
             inherit_env=False,
         )
         output = _tail(f"{proc.stdout}\n{proc.stderr}".replace(str(project) + os.sep, ""))

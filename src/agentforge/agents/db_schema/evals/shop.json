@@ -1,0 +1,66 @@
+{
+  "name": "shop",
+  "description": "Customers, products, orders with a status enum and order lines; money must be numeric and quantities positive.",
+  "input": {
+    "id_style": "uuid",
+    "requirements": "An online shop. Customers have a unique email and a name. Products have a unique sku, a name, a price (money, never negative) and a stock count (never negative). A customer places orders; an order has a status that is one of pending, paid, shipped or cancelled (default pending), and a total. An order has order_items: each links an order to a product with a quantity (at least 1) and the unit_price at the time of ordering. A product can appear only once per order."
+  },
+  "expect": {
+    "tables": [
+      "customers",
+      "products",
+      "orders",
+      "order_items"
+    ],
+    "columns": {
+      "products": [
+        "sku",
+        "name",
+        "price",
+        "stock"
+      ],
+      "orders": [
+        "customer_id",
+        "status",
+        "total"
+      ],
+      "order_items": [
+        "order_id",
+        "product_id",
+        "quantity",
+        "unit_price"
+      ]
+    },
+    "foreign_keys": [
+      "orders.customer_id -> customers.id",
+      "order_items.order_id -> orders.id",
+      "order_items.product_id -> products.id"
+    ],
+    "unique": [
+      "customers(email)",
+      "products(sku)",
+      "order_items(order_id,product_id)"
+    ],
+    "checks": [
+      "products",
+      "order_items"
+    ],
+    "types": {
+      "products.price": "numeric",
+      "orders.total": "numeric",
+      "order_items.unit_price": "numeric",
+      "products.stock": "integer"
+    },
+    "enums": [
+      [
+        "pending",
+        "paid",
+        "shipped",
+        "cancelled"
+      ]
+    ],
+    "required": [
+      "orders.status"
+    ]
+  }
+}

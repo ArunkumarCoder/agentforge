@@ -1,0 +1,66 @@
+{
+  "name": "blog",
+  "description": "Users, posts, comments and a many-to-many tag join table with a composite key.",
+  "input": {
+    "id_style": "uuid",
+    "requirements": "A blogging platform. Users have a unique email and a display_name. A user writes posts; a post has a title, a unique slug, a body and an optional published_at time (null while a draft). Readers (users) leave comments on posts; a comment has a body. Posts can have many tags and a tag can be on many posts; tag names are unique. Everything records when it was created (created_at), except the tag join."
+  },
+  "expect": {
+    "tables": [
+      "users",
+      "posts",
+      "comments",
+      "tags",
+      "post_tags"
+    ],
+    "columns": {
+      "users": [
+        "id",
+        "email",
+        "display_name"
+      ],
+      "posts": [
+        "id",
+        "author_id",
+        "title",
+        "slug",
+        "body",
+        "published_at"
+      ],
+      "comments": [
+        "post_id",
+        "body"
+      ],
+      "tags": [
+        "name"
+      ],
+      "post_tags": [
+        "post_id",
+        "tag_id"
+      ]
+    },
+    "foreign_keys": [
+      "posts.author_id -> users.id",
+      "post_tags.post_id -> posts.id",
+      "post_tags.tag_id -> tags.id",
+      "comments.post_id -> posts.id"
+    ],
+    "unique": [
+      "users(email)",
+      "posts(slug)",
+      "tags(name)",
+      "post_tags(post_id,tag_id)"
+    ],
+    "types": {
+      "users.id": "uuid",
+      "posts.published_at": "timestamptz"
+    },
+    "nullable": [
+      "posts.published_at"
+    ],
+    "required": [
+      "posts.title",
+      "users.email"
+    ]
+  }
+}

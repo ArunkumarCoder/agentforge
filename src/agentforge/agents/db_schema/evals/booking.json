@@ -1,0 +1,64 @@
+{
+  "name": "booking",
+  "description": "Rooms, guests and bookings with time-range and capacity rules and a status enum.",
+  "input": {
+    "id_style": "uuid",
+    "requirements": "A room booking system. Rooms have a unique name, a capacity (more than 0) and an optional floor. Guests have a full_name, a unique email and an optional phone. A guest books a room for a period: a booking has starts_at and ends_at timestamps (the end must be after the start), and a status of confirmed or cancelled (default confirmed). Rooms and guests that have bookings cannot be deleted."
+  },
+  "expect": {
+    "tables": [
+      "rooms",
+      "guests",
+      "bookings"
+    ],
+    "columns": {
+      "rooms": [
+        "name",
+        "capacity",
+        "floor"
+      ],
+      "guests": [
+        "full_name",
+        "email",
+        "phone"
+      ],
+      "bookings": [
+        "room_id",
+        "guest_id",
+        "starts_at",
+        "ends_at",
+        "status"
+      ]
+    },
+    "foreign_keys": [
+      "bookings.room_id -> rooms.id",
+      "bookings.guest_id -> guests.id"
+    ],
+    "unique": [
+      "rooms(name)",
+      "guests(email)"
+    ],
+    "checks": [
+      "rooms",
+      "bookings"
+    ],
+    "types": {
+      "bookings.starts_at": "timestamptz",
+      "bookings.ends_at": "timestamptz",
+      "rooms.capacity": "integer"
+    },
+    "nullable": [
+      "rooms.floor",
+      "guests.phone"
+    ],
+    "required": [
+      "bookings.starts_at"
+    ],
+    "enums": [
+      [
+        "confirmed",
+        "cancelled"
+      ]
+    ]
+  }
+}

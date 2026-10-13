@@ -1,0 +1,69 @@
+{
+  "name": "saas",
+  "description": "Multi-tenant SaaS: organizations, users, memberships with a role enum, projects and an append-only audit log with jsonb details.",
+  "input": {
+    "id_style": "uuid",
+    "requirements": "A multi-tenant SaaS. Organizations have a unique slug and a name. Users have a unique email and an optional name. Users belong to organizations through memberships with a role of owner, admin or member (default member); a user is a member of an organization at most once. Organizations have projects with a name (unique within the organization) and an optional archived_at time. An audit_log records, per organization, who (the actor, a user; kept as null if the user is deleted) did what (an action text), with free-form details as JSON, and when. The audit log has a bigint identity key and is never updated."
+  },
+  "expect": {
+    "tables": [
+      "organizations",
+      "users",
+      "memberships",
+      "projects",
+      "audit_log"
+    ],
+    "columns": {
+      "organizations": [
+        "slug",
+        "name"
+      ],
+      "memberships": [
+        "organization_id",
+        "user_id",
+        "role"
+      ],
+      "projects": [
+        "organization_id",
+        "name",
+        "archived_at"
+      ],
+      "audit_log": [
+        "organization_id",
+        "actor_id",
+        "action",
+        "details",
+        "created_at"
+      ]
+    },
+    "foreign_keys": [
+      "memberships.organization_id -> organizations.id",
+      "memberships.user_id -> users.id",
+      "projects.organization_id -> organizations.id",
+      "audit_log.organization_id -> organizations.id",
+      "audit_log.actor_id -> users.id"
+    ],
+    "unique": [
+      "organizations(slug)",
+      "users(email)",
+      "memberships(organization_id,user_id)",
+      "projects(organization_id,name)"
+    ],
+    "types": {
+      "audit_log.details": "jsonb",
+      "audit_log.id": "bigint"
+    },
+    "nullable": [
+      "audit_log.actor_id",
+      "projects.archived_at",
+      "users.name"
+    ],
+    "enums": [
+      [
+        "owner",
+        "admin",
+        "member"
+      ]
+    ]
+  }
+}

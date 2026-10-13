@@ -1,0 +1,59 @@
+{
+  "name": "school",
+  "description": "Students, teachers, courses and enrollments with a unique pair and a bounded grade.",
+  "input": {
+    "id_style": "uuid",
+    "requirements": "A school registry. Students have a full_name, a unique email and an enrolled_on date. Teachers have a full_name and a unique email. Courses have a unique code, a title and credits (more than 0); each course may have one teacher, and if a teacher is deleted the course stays without one. Students enroll in courses; an enrollment records the student, the course and an optional grade from 0 to 100. A student can enroll in a course only once."
+  },
+  "expect": {
+    "tables": [
+      "students",
+      "teachers",
+      "courses",
+      "enrollments"
+    ],
+    "columns": {
+      "students": [
+        "full_name",
+        "email",
+        "enrolled_on"
+      ],
+      "courses": [
+        "code",
+        "title",
+        "credits",
+        "teacher_id"
+      ],
+      "enrollments": [
+        "student_id",
+        "course_id",
+        "grade"
+      ]
+    },
+    "foreign_keys": [
+      "courses.teacher_id -> teachers.id",
+      "enrollments.student_id -> students.id",
+      "enrollments.course_id -> courses.id"
+    ],
+    "unique": [
+      "students(email)",
+      "courses(code)",
+      "enrollments(student_id,course_id)"
+    ],
+    "checks": [
+      "courses",
+      "enrollments"
+    ],
+    "types": {
+      "students.enrolled_on": "date",
+      "courses.credits": "integer"
+    },
+    "nullable": [
+      "courses.teacher_id",
+      "enrollments.grade"
+    ],
+    "required": [
+      "courses.code"
+    ]
+  }
+}
