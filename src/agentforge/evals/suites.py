@@ -40,6 +40,7 @@ def all_suites() -> dict[str, Suite]:
     from agentforge.agents.code_review import scoring as code_review
     from agentforge.agents.db_schema import scoring as db_schema
     from agentforge.agents.doc_gen import scoring as doc_gen
+    from agentforge.agents.migration import scoring as migration
     from agentforge.agents.performance import scoring as performance
     from agentforge.agents.refactor import scoring as refactor
     from agentforge.agents.security_audit import scoring as security_audit
@@ -52,6 +53,7 @@ def all_suites() -> dict[str, Suite]:
         Suite("bug-fix", bug_fix.load_cases, lambda c: c.fix_input(), bug_fix.score),
         Suite("test-gen", test_gen.load_cases, lambda c: c.gen_input(), test_gen.score),
         Suite("doc-gen", doc_gen.load_cases, lambda c: c.doc_input(), doc_gen.score),
+        Suite("migration", migration.load_cases, lambda c: c.migration_input(), migration.score),
         Suite("performance", performance.load_cases, lambda c: c.perf_input(), performance.score),
         Suite("refactor", refactor.load_cases, lambda c: c.refactor_input(), refactor.score),
         Suite(

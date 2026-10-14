@@ -1,0 +1,16 @@
+{
+  "name": "legacy_stdlib",
+  "description": "A utility module that no longer imports on 3.12: collections ABCs, inspect.getargspec and base64.encodestring/decodestring. Hidden tests check the exact base64 line-wrapping.",
+  "input": {
+    "files": {
+      "compat/util.py": "import base64\nimport inspect\nfrom collections import Mapping, OrderedDict\n\n\ndef arg_names(func):\n    return inspect.getargspec(func).args\n\n\ndef encode(text):\n    return base64.encodestring(text.encode()).decode()\n\n\ndef decode(data):\n    return base64.decodestring(data.encode()).decode()\n\n\ndef merge(a, b):\n    if not isinstance(a, Mapping) or not isinstance(b, Mapping):\n        raise TypeError(\"expected mappings\")\n    merged = OrderedDict(a)\n    merged.update(b)\n    return merged\n",
+      "tests/test_util.py": "import pytest\n\nfrom compat.util import arg_names, decode, encode, merge\n\n\ndef test_arg_names():\n    assert arg_names(lambda a, b: None) == [\"a\", \"b\"]\n\n\ndef test_base64_round_trip():\n    assert encode(\"hi\") == \"aGk=\\n\"\n    assert decode(\"aGk=\\n\") == \"hi\"\n\n\ndef test_merge_keeps_order_and_overrides():\n    assert list(merge({\"a\": 1, \"b\": 2}, {\"b\": 3, \"c\": 4}).items()) == [(\"a\", 1), (\"b\", 3), (\"c\", 4)]\n\n\ndef test_merge_rejects_non_mappings():\n    with pytest.raises(TypeError):\n        merge([1], {\"a\": 1})\n"
+    }
+  },
+  "expect": {
+    "hidden_tests": {
+      "tests/test_util_hidden.py": "from compat.util import decode, encode\n\n\ndef test_long_text_is_wrapped_like_before():\n    encoded = encode(\"x\" * 100)\n    assert encoded.count(\"\\n\") == 2\n    assert decode(encoded) == \"x\" * 100\n"
+    },
+    "unchanged": []
+  }
+}

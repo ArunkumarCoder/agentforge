@@ -1,0 +1,19 @@
+{
+  "typing_modernize": {
+    "inventory/models.py": "def find_item(items: list[dict], sku: str) -> dict | None:\n    for item in items:\n        if item[\"sku\"] == sku:\n            return item\n    return None\n\n\ndef stock_by_location(items: list[dict]) -> dict[str, int]:\n    totals: dict[str, int] = {}\n    for item in items:\n        totals[item[\"location\"]] = totals.get(item[\"location\"], 0) + item[\"qty\"]\n    return totals\n\n\ndef bounds(values: list[int]) -> tuple[int, int]:\n    return min(values), max(values)\n\n\ndef parse_qty(raw: str | int) -> int:\n    return int(raw)\n"
+  },
+  "clock_utc": {
+    "billing/clock.py": "from datetime import UTC, datetime, timedelta\n\n\ndef now() -> datetime:\n    return datetime.now(UTC).replace(tzinfo=None)\n\n\ndef from_timestamp(ts: float) -> datetime:\n    return datetime.fromtimestamp(ts, UTC).replace(tzinfo=None)\n\n\ndef is_expired(expires_at: datetime) -> bool:\n    return expires_at < datetime.now(UTC).replace(tzinfo=None)\n\n\ndef expiry(days: int) -> datetime:\n    return datetime.now(UTC).replace(tzinfo=None) + timedelta(days=days)\n"
+  },
+  "unittest_aliases": {
+    "tests/test_cart.py": "import unittest\n\nfrom shop.cart import Cart\n\n\nclass CartTest(unittest.TestCase):\n    def test_add(self):\n        cart = Cart()\n        cart.add(\"a\", 2)\n        self.assertEqual(cart.total_items(), 2)\n\n    def test_rejects_zero(self):\n        with self.assertRaisesRegex(ValueError, \"positive\"):\n            Cart().add(\"a\", 0)\n\n    def test_not_empty_after_add(self):\n        cart = Cart()\n        cart.add(\"a\")\n        self.assertNotEqual(cart.total_items(), 0)\n\n    def test_new_cart_is_empty(self):\n        self.assertTrue(Cart().total_items() == 0)\n"
+  },
+  "legacy_stdlib": {
+    "compat/util.py": "import base64\nimport inspect\nfrom collections import OrderedDict\nfrom collections.abc import Mapping\n\n\ndef arg_names(func):\n    return inspect.getfullargspec(func).args\n\n\ndef encode(text):\n    return base64.encodebytes(text.encode()).decode()\n\n\ndef decode(data):\n    return base64.decodebytes(data.encode()).decode()\n\n\ndef merge(a, b):\n    if not isinstance(a, Mapping) or not isinstance(b, Mapping):\n        raise TypeError(\"expected mappings\")\n    merged = OrderedDict(a)\n    merged.update(b)\n    return merged\n"
+  },
+  "plugin_loader": {
+    "plugins/loader.py": "import importlib\n\n_CACHE: dict[str, object] = {}\n\n\ndef load(name: str) -> object | None:\n    try:\n        module = importlib.import_module(name)\n    except ImportError:\n        return None\n    _CACHE[name] = module\n    return module\n\n\ndef reload(name: str) -> object | None:\n    module = _CACHE.get(name)\n    if module is None:\n        return None\n    return importlib.reload(module)\n",
+    "plugins/clock.py": "from datetime import UTC, datetime\n\n\ndef stamp() -> str:\n    return datetime.now(UTC).replace(tzinfo=None).isoformat()\n",
+    "tests/test_clock.py": "import unittest\nfrom datetime import datetime\n\nfrom plugins.clock import stamp\n\n\nclass StampTest(unittest.TestCase):\n    def test_parses_back(self):\n        self.assertEqual(type(datetime.fromisoformat(stamp())), datetime)\n\n    def test_has_no_offset(self):\n        self.assertNotEqual(stamp()[-6:-5], \"+\")\n"
+  }
+}

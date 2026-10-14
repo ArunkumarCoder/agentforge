@@ -20,7 +20,7 @@ All 25 agents, grouped by category. The week column is when each is built. Every
 | 7 | Database Schema | 4 | Entities → ERD, DDL and SQLAlchemy models. | pglast (Postgres parser), psql | DDL parses and, with a server configured, executes on Postgres; models match the DDL |
 | 8 | Security Audit | 4 | Static scan + LLM triage into prioritized, deduplicated findings. | bandit, secrets scanner | Seeded vulnerabilities found, decoys dismissed, additions backed by quoted code |
 | 9 | Performance | 4 | Analyzes profiles/code for hotspots and complexity issues. | cProfile runner, static pattern scan | Planted slow code found, decoys dismissed, measured bottleneck named |
-| 10 | Migration | 4 | Plans and drafts framework/version migrations. | file_read, dependency parser | Judge rubric + compiles |
+| 10 | Migration | 4 | Plans and drafts framework/version migrations. | py_migrate scanner (syntax trees), pytest | Every site gone, API kept, tests pass (also hidden ones) |
 
 ## Knowledge
 

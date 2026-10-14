@@ -1,0 +1,21 @@
+{
+  "name": "plugin_loader",
+  "description": "A small package: imp.reload (removed), Optional/Dict, utcnow in one module, unittest aliases in one test file, and a constants module that needs nothing.",
+  "input": {
+    "files": {
+      "plugins/constants.py": "DEFAULT_TIMEOUT = 30\nPLUGIN_PREFIX = \"plugin_\"\n",
+      "plugins/loader.py": "import imp\nimport importlib\nfrom typing import Dict, Optional\n\n_CACHE: Dict[str, object] = {}\n\n\ndef load(name: str) -> Optional[object]:\n    try:\n        module = importlib.import_module(name)\n    except ImportError:\n        return None\n    _CACHE[name] = module\n    return module\n\n\ndef reload(name: str) -> Optional[object]:\n    module = _CACHE.get(name)\n    if module is None:\n        return None\n    return imp.reload(module)\n",
+      "plugins/clock.py": "from datetime import datetime\n\n\ndef stamp() -> str:\n    return datetime.utcnow().isoformat()\n",
+      "tests/test_loader.py": "from plugins.loader import load, reload\n\n\ndef test_load_and_reload():\n    module = load(\"json\")\n    assert module.__name__ == \"json\"\n    assert reload(\"json\").__name__ == \"json\"\n\n\ndef test_missing_module_is_none():\n    assert load(\"no_such_module_here\") is None\n    assert reload(\"never_loaded\") is None\n",
+      "tests/test_clock.py": "import unittest\nfrom datetime import datetime\n\nfrom plugins.clock import stamp\n\n\nclass StampTest(unittest.TestCase):\n    def test_parses_back(self):\n        self.assertEquals(type(datetime.fromisoformat(stamp())), datetime)\n\n    def test_has_no_offset(self):\n        self.assertNotEquals(stamp()[-6:-5], \"+\")\n"
+    }
+  },
+  "expect": {
+    "hidden_tests": {
+      "tests/test_clock_hidden.py": "from plugins.clock import stamp\n\n\ndef test_stamp_is_naive():\n    assert \"+\" not in stamp()\n    assert \"Z\" not in stamp()\n"
+    },
+    "unchanged": [
+      "plugins/constants.py"
+    ]
+  }
+}

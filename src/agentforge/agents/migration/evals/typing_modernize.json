@@ -1,0 +1,16 @@
+{
+  "name": "typing_modernize",
+  "description": "Old typing spellings (List, Dict, Tuple, Optional, Union). Hidden tests check the real type hints, so only a true migration passes.",
+  "input": {
+    "files": {
+      "inventory/models.py": "from typing import Dict, List, Optional, Tuple, Union\n\n\ndef find_item(items: List[dict], sku: str) -> Optional[dict]:\n    for item in items:\n        if item[\"sku\"] == sku:\n            return item\n    return None\n\n\ndef stock_by_location(items: List[dict]) -> Dict[str, int]:\n    totals: Dict[str, int] = {}\n    for item in items:\n        totals[item[\"location\"]] = totals.get(item[\"location\"], 0) + item[\"qty\"]\n    return totals\n\n\ndef bounds(values: List[int]) -> Tuple[int, int]:\n    return min(values), max(values)\n\n\ndef parse_qty(raw: Union[str, int]) -> int:\n    return int(raw)\n",
+      "tests/test_models.py": "from inventory.models import bounds, find_item, parse_qty, stock_by_location\n\nITEMS = [\n    {\"sku\": \"a\", \"location\": \"north\", \"qty\": 2},\n    {\"sku\": \"b\", \"location\": \"north\", \"qty\": 3},\n    {\"sku\": \"c\", \"location\": \"south\", \"qty\": 1},\n]\n\n\ndef test_find_item():\n    assert find_item(ITEMS, \"b\")[\"qty\"] == 3\n    assert find_item(ITEMS, \"zzz\") is None\n\n\ndef test_stock_by_location():\n    assert stock_by_location(ITEMS) == {\"north\": 5, \"south\": 1}\n\n\ndef test_bounds():\n    assert bounds([4, 1, 9]) == (1, 9)\n\n\ndef test_parse_qty():\n    assert parse_qty(\"7\") == 7\n    assert parse_qty(7) == 7\n"
+    }
+  },
+  "expect": {
+    "hidden_tests": {
+      "tests/test_hints.py": "import typing\n\nfrom inventory.models import bounds, find_item, parse_qty, stock_by_location\n\n\ndef test_hints_are_builtin_generics():\n    assert typing.get_type_hints(bounds)[\"values\"] == list[int]\n    assert typing.get_type_hints(bounds)[\"return\"] == tuple[int, int]\n    assert typing.get_type_hints(stock_by_location)[\"return\"] == dict[str, int]\n    assert typing.get_type_hints(find_item)[\"return\"] == (dict | None)\n    assert typing.get_type_hints(parse_qty)[\"raw\"] == (str | int)\n"
+    },
+    "unchanged": []
+  }
+}

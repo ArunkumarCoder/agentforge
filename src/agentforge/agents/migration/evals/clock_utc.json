@@ -1,0 +1,16 @@
+{
+  "name": "clock_utc",
+  "description": "datetime.utcnow() and utcfromtimestamp(), whose naive results are compared with naive stored dates. Hidden tests require the results to stay naive.",
+  "input": {
+    "files": {
+      "billing/clock.py": "from datetime import datetime, timedelta\n\n\ndef now() -> datetime:\n    return datetime.utcnow()\n\n\ndef from_timestamp(ts: float) -> datetime:\n    return datetime.utcfromtimestamp(ts)\n\n\ndef is_expired(expires_at: datetime) -> bool:\n    return expires_at < datetime.utcnow()\n\n\ndef expiry(days: int) -> datetime:\n    return datetime.utcnow() + timedelta(days=days)\n",
+      "tests/test_clock.py": "from datetime import datetime\n\nfrom billing.clock import expiry, from_timestamp, is_expired\n\n\ndef test_past_dates_are_expired():\n    assert is_expired(datetime(2000, 1, 1))\n\n\ndef test_future_dates_are_not_expired():\n    assert not is_expired(expiry(2))\n\n\ndef test_epoch():\n    assert from_timestamp(0) == datetime(1970, 1, 1)\n"
+    }
+  },
+  "expect": {
+    "hidden_tests": {
+      "tests/test_clock_hidden.py": "from datetime import datetime\n\nfrom billing.clock import expiry, from_timestamp, now\n\n\ndef test_results_stay_naive():\n    assert now().tzinfo is None\n    assert expiry(1).tzinfo is None\n    assert from_timestamp(86400) == datetime(1970, 1, 2)\n    assert from_timestamp(86400).tzinfo is None\n\n\ndef test_now_is_utc_not_local_time():\n    assert abs((now() - datetime(2000, 1, 1)).days) > 9000\n"
+    },
+    "unchanged": []
+  }
+}
