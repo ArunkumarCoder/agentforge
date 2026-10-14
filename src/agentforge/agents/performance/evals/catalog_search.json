@@ -1,0 +1,38 @@
+{
+  "name": "catalog_search",
+  "description": "A catalog: an exponential recursive function that needs caching (no scanner sees it), a very complex function, and a sort done once outside the loop.",
+  "input": {
+    "files": {
+      "catalog/search.py": "def price_tier(n):\n    if n < 2:\n        return n\n    return price_tier(n - 1) + price_tier(n - 2)\n\n\ndef classify(item):\n    if item.get(\"kind\") == \"book\":\n        if item.get(\"pages\", 0) > 500:\n            return \"long\"\n        if item.get(\"pages\", 0) > 200:\n            return \"medium\"\n        return \"short\"\n    if item.get(\"kind\") == \"film\":\n        if item.get(\"minutes\", 0) > 150:\n            return \"long\"\n        if item.get(\"minutes\", 0) > 90:\n            return \"medium\"\n        return \"short\"\n    if item.get(\"kind\") == \"game\":\n        if item.get(\"hours\", 0) > 40:\n            return \"long\"\n        if item.get(\"hours\", 0) > 10:\n            return \"medium\"\n        return \"short\"\n    if item.get(\"kind\") == \"podcast\":\n        if item.get(\"minutes\", 0) > 90:\n            return \"long\"\n        if item.get(\"minutes\", 0) > 30:\n            return \"medium\"\n        return \"short\"\n    if item.get(\"kind\") == \"album\" and item.get(\"tracks\", 0) > 12 or item.get(\"minutes\", 0) > 60:\n        return \"long\"\n    return \"unknown\"\n\n\ndef top_titles(items, limit):\n    ordered = sorted(items, key=lambda i: i[\"title\"])\n    return [i[\"title\"] for i in ordered[:limit]]\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "catalog/search.py",
+        "line": 1,
+        "function": "price_tier",
+        "kind": [
+          "algorithm",
+          "caching"
+        ],
+        "min_impact": "high"
+      },
+      {
+        "file": "catalog/search.py",
+        "line": 7,
+        "function": "classify",
+        "kind": [
+          "complexity"
+        ],
+        "min_impact": "low"
+      }
+    ],
+    "safe": [
+      {
+        "file": "catalog/search.py",
+        "line": 38
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "profile_hotspot",
+  "description": "A script profiled for real: a checksum loop that no static rule matches takes most of the time, while a list-based de-duplication is slow-looking but cheap at this size.",
+  "input": {
+    "files": {
+      "app/tools.py": "def checksum(data):\n    total = 0\n    for byte in data:\n        total = (total * 31 + byte) % 1000003\n    return total\n\n\ndef dedupe(items):\n    seen = []\n    for item in items:\n        if item not in seen:\n            seen.append(item)\n    return seen\n",
+      "app/main.py": "from app.tools import checksum, dedupe\n\npayload = bytes(range(256)) * 4000\nfor _ in range(3):\n    checksum(payload)\ndedupe(list(range(300)))\n"
+    },
+    "profile_script": "app/main.py"
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "app/tools.py",
+        "line": 3,
+        "function": "checksum",
+        "kind": [
+          "hotspot",
+          "algorithm",
+          "other"
+        ],
+        "min_impact": "high"
+      }
+    ],
+    "safe": [],
+    "bottleneck": "checksum"
+  }
+}

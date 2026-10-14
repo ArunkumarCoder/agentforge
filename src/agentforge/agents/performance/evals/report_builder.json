@@ -1,0 +1,45 @@
+{
+  "name": "report_builder",
+  "description": "Report code: de-duplication with list membership, string building with +=, and decoys that look similar but are fast (a set, str.join, a small fixed loop).",
+  "input": {
+    "files": {
+      "reports/build.py": "def unique_customers(orders):\n    seen = []\n    result = []\n    for order in orders:\n        if order[\"customer\"] not in seen:\n            seen.append(order[\"customer\"])\n            result.append(order)\n    return result\n\n\ndef unique_fast(orders):\n    seen = set()\n    result = []\n    for order in orders:\n        if order[\"customer\"] not in seen:\n            seen.add(order[\"customer\"])\n            result.append(order)\n    return result\n\n\ndef render_csv(rows):\n    text = \"\"\n    for row in rows:\n        text += \",\".join(str(v) for v in row) + \"\\n\"\n    return text\n\n\ndef render_csv_fast(rows):\n    lines = []\n    for row in rows:\n        lines.append(\",\".join(str(v) for v in row))\n    return \"\\n\".join(lines) + \"\\n\"\n\n\ndef corner_pairs():\n    pairs = []\n    for a in range(3):\n        for b in range(3):\n            pairs.append((a, b))\n    return pairs\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "reports/build.py",
+        "line": 5,
+        "function": "unique_customers",
+        "kind": [
+          "list_membership"
+        ],
+        "min_impact": "medium"
+      },
+      {
+        "file": "reports/build.py",
+        "line": 24,
+        "function": "render_csv",
+        "kind": [
+          "string_concat"
+        ],
+        "min_impact": "low"
+      }
+    ],
+    "safe": [
+      {
+        "file": "reports/build.py",
+        "line": 15
+      },
+      {
+        "file": "reports/build.py",
+        "line": 31
+      },
+      {
+        "file": "reports/build.py",
+        "line": 38
+      }
+    ]
+  }
+}

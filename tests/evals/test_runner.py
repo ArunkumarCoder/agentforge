@@ -214,6 +214,7 @@ def test_every_agent_with_cases_has_a_suite() -> None:
         "code-review",
         "db-schema",
         "doc-gen",
+        "performance",
         "refactor",
         "security-audit",
         "test-gen",

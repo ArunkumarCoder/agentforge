@@ -1,0 +1,50 @@
+{
+  "name": "queue_worker",
+  "description": "A task queue: popping from the front of a list, inserting at the front, a regex compiled per message, and decoys (deque, a module-level regex).",
+  "input": {
+    "files": {
+      "worker/queue.py": "import re\nfrom collections import deque\n\nLINE_RE = re.compile(r\"^(\\w+)=(.*)$\")\n\n\ndef drain(tasks, handle):\n    while tasks:\n        task = tasks.pop(0)\n        handle(task)\n\n\ndef drain_fast(tasks, handle):\n    queue = deque(tasks)\n    while queue:\n        handle(queue.popleft())\n\n\ndef prepend_all(items):\n    result = []\n    for item in items:\n        result.insert(0, item)\n    return result\n\n\ndef parse_lines(lines):\n    parsed = []\n    for line in lines:\n        pattern = re.compile(r\"^(\\w+)=(.*)$\")\n        match = pattern.match(line)\n        if match:\n            parsed.append(match.groups())\n    return parsed\n\n\ndef parse_lines_fast(lines):\n    return [m.groups() for m in map(LINE_RE.match, lines) if m]\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "worker/queue.py",
+        "line": 9,
+        "function": "drain",
+        "kind": [
+          "list_front_ops"
+        ],
+        "min_impact": "medium"
+      },
+      {
+        "file": "worker/queue.py",
+        "line": 22,
+        "function": "prepend_all",
+        "kind": [
+          "list_front_ops"
+        ],
+        "min_impact": "medium"
+      },
+      {
+        "file": "worker/queue.py",
+        "line": 29,
+        "function": "parse_lines",
+        "kind": [
+          "regex_in_loop"
+        ],
+        "min_impact": "low"
+      }
+    ],
+    "safe": [
+      {
+        "file": "worker/queue.py",
+        "line": 16
+      },
+      {
+        "file": "worker/queue.py",
+        "line": 37
+      }
+    ]
+  }
+}

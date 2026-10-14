@@ -1,0 +1,41 @@
+{
+  "name": "order_service",
+  "description": "An order service: a database query per order (N+1), a nested loop matching items to stock, and decoys (one query outside the loop, a batched query).",
+  "input": {
+    "files": {
+      "orders/service.py": "def totals_per_customer(db, orders):\n    totals = {}\n    for order in orders:\n        row = db.execute(\"SELECT SUM(price) FROM items WHERE order_id = ?\", (order[\"id\"],)).fetchone()\n        totals[order[\"customer\"]] = totals.get(order[\"customer\"], 0) + (row[0] or 0)\n    return totals\n\n\ndef totals_batched(db, orders):\n    ids = [o[\"id\"] for o in orders]\n    marks = \",\".join(\"?\" for _ in ids)\n    rows = db.execute(f\"SELECT order_id, SUM(price) FROM items WHERE order_id IN ({marks}) GROUP BY order_id\", ids).fetchall()\n    return dict(rows)\n\n\ndef count_orders(db):\n    return db.execute(\"SELECT COUNT(*) FROM orders\").fetchone()[0]\n\n\ndef match_stock(items, stock):\n    matched = []\n    for item in items:\n        for entry in stock:\n            if entry[\"sku\"] == item[\"sku\"]:\n                matched.append((item, entry))\n    return matched\n"
+    }
+  },
+  "expect": {
+    "find": [
+      {
+        "file": "orders/service.py",
+        "line": 4,
+        "function": "totals_per_customer",
+        "kind": [
+          "io_in_loop"
+        ],
+        "min_impact": "high"
+      },
+      {
+        "file": "orders/service.py",
+        "line": 23,
+        "function": "match_stock",
+        "kind": [
+          "nested_loop"
+        ],
+        "min_impact": "medium"
+      }
+    ],
+    "safe": [
+      {
+        "file": "orders/service.py",
+        "line": 12
+      },
+      {
+        "file": "orders/service.py",
+        "line": 17
+      }
+    ]
+  }
+}
