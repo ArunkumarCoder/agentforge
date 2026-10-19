@@ -74,6 +74,29 @@ class LLMSettings(BaseModel):
     cache_dir: Path = Path(".cache/llm")
 
 
+class ApiSettings(BaseModel):
+    """The HTTP API. Safe by default: loopback only, no server-side paths."""
+
+    host: str = "127.0.0.1"
+    port: int = Field(default=8000, ge=1, le=65535)
+    api_key: SecretStr | None = (
+        None  # when set, every call except /health needs it as a Bearer token
+    )
+    allow_repo_paths: bool = False  # let callers name a repository on the server (repo_path)
+    repo_root: Path | None = None  # ...but only inside this folder
+    max_concurrent_runs: int = Field(default=4, ge=1, le=64)
+    max_body_bytes: int = Field(default=5_000_000, ge=1_000)
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def _blank_key_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @property
+    def is_loopback(self) -> bool:
+        return self.host in {"127.0.0.1", "localhost", "::1"}
+
+
 class Settings(BaseSettings):
     """All runtime configuration for AgentForge."""
 
@@ -88,6 +111,7 @@ class Settings(BaseSettings):
     env: Environment = Environment.DEV
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
+    api: ApiSettings = Field(default_factory=ApiSettings)
 
     # Provider keys accept the providers' standard variable names as well.
     anthropic_api_key: SecretStr | None = Field(

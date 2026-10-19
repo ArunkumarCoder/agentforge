@@ -8,6 +8,7 @@
     agentforge eval run <agent|all> [--case NAME] [--min-pass-rate 0.8] [--out DIR]
     agentforge llm ping [--prompt "..."]
     agentforge config show
+    agentforge serve [--host 127.0.0.1] [--port 8000]
 
 Results go to stdout (pretty by default, ``--json`` for scripts); logs go to
 stderr, so ``agentforge agents run ... --json | jq`` works.
@@ -221,6 +222,33 @@ def _read_input(data: str | None, input_file: Path | None) -> dict[str, Any]:
     return parsed
 
 
+# --------------------------------------------------------------------------- serve
+
+
+@app.command("serve")
+def serve(
+    host: Annotated[str | None, typer.Option("--host", help="Interface to listen on.")] = None,
+    port: Annotated[int | None, typer.Option("--port", help="Port to listen on.")] = None,
+) -> None:
+    """Start the HTTP API (docs at /docs). Loopback only unless an API key is set."""
+    import uvicorn
+
+    from agentforge.api import create_app
+
+    settings = get_settings()
+    api = settings.api.model_copy(
+        update={"host": host or settings.api.host, "port": port or settings.api.port}
+    )
+    if not api.is_loopback and api.api_key is None:
+        raise _fail(
+            f"refusing to listen on {api.host} without an API key: agents run the code they are "
+            "sent. Set AGENTFORGE_API__API_KEY, or use the default 127.0.0.1"
+        )
+    served = settings.model_copy(update={"api": api})
+    err.print(f"Serving on http://{api.host}:{api.port} (interactive docs at /docs)")
+    uvicorn.run(create_app(served), host=api.host, port=api.port, log_config=None)
+
+
 # --------------------------------------------------------------------------- eval
 
 
@@ -396,6 +424,7 @@ def _public_settings(settings: Settings) -> dict[str, Any]:
     data = settings.model_dump(mode="json", exclude={"anthropic_api_key", "openai_api_key"})
     data["anthropic_api_key"] = "set" if settings.anthropic_api_key else "not set"
     data["openai_api_key"] = "set" if settings.openai_api_key else "not set"
+    data["api"]["api_key"] = "set" if settings.api.api_key else "not set"
     return data
 
 

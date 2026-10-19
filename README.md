@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 4 in progress. Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. Next: a basic HTTP API for all ten agents.
+> **Status:** Week 4 in progress. Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Next: Week 4 review, then hardening, PostgreSQL run storage and the v0.1.0 release.
 
 ## Quick start (dev)
 
@@ -30,6 +30,7 @@ uv run agentforge agents run echo -d '{"text": "hi"}'       # run once (pretty o
 uv run agentforge agents run echo -i input.json --json      # full RunResult as JSON (also: -i - for stdin)
 uv run agentforge llm ping                                  # check provider, key, tokens and cost
 uv run agentforge config show                               # effective settings (keys shown as set/not set)
+uv run agentforge serve                                     # HTTP API on http://127.0.0.1:8000 (docs at /docs)
 uv run agentforge -v ...                                    # show info logs (quiet by default)
 ```
 
@@ -119,6 +120,23 @@ make eval                                      # same as `eval run all`
 
 See [docs/AGENT_TEMPLATE.md](docs/AGENT_TEMPLATE.md) for how to write a new agent.
 
+## HTTP API
+
+```bash
+uv run agentforge serve                      # http://127.0.0.1:8000, interactive docs at /docs
+curl localhost:8000/agents                   # every agent: name, version, description, tags
+curl localhost:8000/agents/security-audit    # one agent with its input and output JSON Schemas
+curl -X POST localhost:8000/agents/echo/run -H 'Content-Type: application/json' -d '{"text": "hi"}'
+```
+
+`POST /agents/{name}/run` takes the agent's input as the body (the same JSON you pass to `agentforge agents run -d`) and always answers with the full `RunResult`. The status code says how the run went: `200` succeeded, `422` the input was invalid, `502` the model's answer never passed the agent's checks, `504` timeout, `500` any other failure; `404` for an unknown agent and `503` when the LLM provider is not configured. The `X-Run-Id` header carries the run id.
+
+**Agents run the code you send them** (tests, profile scripts), and that is not a sandbox, so this is not a public service. The defaults are deliberately strict:
+
+- It listens on `127.0.0.1`. Another host (`--host 0.0.0.0`) is refused unless `AGENTFORGE_API__API_KEY` is set; callers then send `Authorization: Bearer <key>` on everything except `GET /health`.
+- `repo_path` is refused (`403`): send the code in `files`. To let callers name a folder on the server, set `AGENTFORGE_API__ALLOW_REPO_PATHS=true` **and** `AGENTFORGE_API__REPO_ROOT`; paths must then stay inside that folder.
+- Bodies over 5 MB are refused (`413`) and at most 4 runs execute at once (`AGENTFORGE_API__MAX_BODY_BYTES`, `AGENTFORGE_API__MAX_CONCURRENT_RUNS`).
+
 ## Your first agent
 
 ```python
@@ -156,6 +174,7 @@ src/agentforge/
 ├── config.py        # settings (pydantic-settings)
 ├── log.py           # structured logging (structlog)
 ├── agents/          # the agents themselves (auto-discovered); echo for smoke tests
+├── api/             # HTTP API (FastAPI): list, describe and run agents
 ├── cli/             # `agentforge` command (Typer + Rich)
 ├── core/            # schemas, BaseAgent, errors, tool-calling loop, agent registry
 ├── llm/             # LLMProvider, Anthropic/OpenAI/Ollama/Fake, retries, pricing, cache
@@ -289,6 +308,10 @@ Settings live in `src/agentforge/config.py` and are read from environment variab
 | `AGENTFORGE_LLM__OLLAMA_BASE_URL` | `http://localhost:11434` | Local Ollama server |
 | `AGENTFORGE_LLM__CACHE` | `off` | `off`, `memory`, `disk` or `replay` |
 | `AGENTFORGE_LLM__CACHE_DIR` | `.cache/llm` | Where `disk`/`replay` keep recorded responses |
+| `AGENTFORGE_API__HOST` / `__PORT` | `127.0.0.1` / `8000` | Where `agentforge serve` listens |
+| `AGENTFORGE_API__API_KEY` | — | Bearer token for the API; required to listen on a non-loopback host |
+| `AGENTFORGE_API__ALLOW_REPO_PATHS` / `__REPO_ROOT` | `false` / — | Let callers use `repo_path`, only inside the root folder |
+| `AGENTFORGE_API__MAX_CONCURRENT_RUNS` / `__MAX_BODY_BYTES` | `4` / `5000000` | Limits on simultaneous runs and request size |
 | `ANTHROPIC_API_KEY` | — | Anthropic key (`AGENTFORGE_ANTHROPIC_API_KEY` also works) |
 | `OPENAI_API_KEY` | — | OpenAI key (`AGENTFORGE_OPENAI_API_KEY` also works) |
 
