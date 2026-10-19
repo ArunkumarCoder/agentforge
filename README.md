@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 4 complete ([review](docs/reviews/week-04.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) is the first Week 5 piece. Next: hardening, a first measured eval baseline and the v0.1.0 release.
+> **Status:** Week 4 complete ([review](docs/reviews/week-04.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Next: hardening, the first measured baseline against a real model and the v0.1.0 release.
 
 ## Quick start (dev)
 
@@ -118,7 +118,17 @@ uv run agentforge eval run all --concurrency 4 # every suite
 make eval                                      # same as `eval run all`
 ```
 
-`eval run` refuses the fake provider (it cannot solve real cases), writes a JSON report per suite to `.cache/evals/`, prints pass rate, mean score, tokens and cost, and exits 1 when a suite falls below `--min-pass-rate` (default 0.8). A crashed agent or scorer counts as an error for that case, not for the whole run.
+`eval run` refuses the fake provider (it cannot solve real cases), writes a JSON report per suite to `.cache/evals/`, prints pass rate, mean score, tokens and cost, and exits 1 when a suite falls below `--min-pass-rate` (default 0.8). A crashed agent or scorer counts as an error for that case, not for the whole run. When run history is on, every case's run is saved too (`source` is `eval`; skip with `--no-history`).
+
+**Baselines** turn a score into a guard. Record a full run against a real model once, commit the files, and every later run is compared with them:
+
+```bash
+uv run agentforge eval run all --save-baseline --markdown docs/evals/results.md   # record (real model only)
+uv run agentforge eval run code-review                  # now prints "vs baseline ..." and lists changes
+uv run agentforge eval compare old.json new.json        # any two baselines or saved reports
+```
+
+A baseline is a small JSON file per agent in `docs/evals/baselines/` with each case's status, score, tokens and cost, plus the model and date. A case that gets worse (passed to failed, failed to error, or a score drop above `--tolerance`, default 0.05) is a regression: it is printed and the command exits 1 even if the pass rate is above the minimum. `--case` runs compare only the cases they ran, and `--save-baseline` refuses `--case` and the fake provider, so a baseline is always a full run of a real model. See [docs/evals/README.md](docs/evals/README.md).
 
 See [docs/AGENT_TEMPLATE.md](docs/AGENT_TEMPLATE.md) for how to write a new agent.
 

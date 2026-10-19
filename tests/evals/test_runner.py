@@ -189,6 +189,34 @@ async def test_an_agent_that_never_gets_it_right_is_an_error() -> None:
 # --------------------------------------------------------------------------- reports
 
 
+async def test_each_case_run_is_saved_to_the_run_store() -> None:
+    from agentforge.storage import RunStore
+
+    store = RunStore("sqlite://")
+    report = await run_suite(echo_suite(), EchoAgent(), store=store)
+    page = store.list_runs()
+    assert page.total == 3
+    assert {r.source for r in page.runs} == {"eval"}
+    assert {r.run_id for r in page.runs} == {c.run_id for c in report.results}
+    record = store.get(report.results[0].run_id or "")
+    assert record is not None
+    assert record.input is not None and set(record.input) >= {"text"}
+    store.close()
+
+
+async def test_a_store_that_fails_does_not_fail_the_eval() -> None:
+    from agentforge.storage import RunStore
+
+    class Broken(RunStore):
+        def save(self, *args: Any, **kwargs: Any) -> None:
+            from agentforge.storage import StorageError
+
+            raise StorageError("disk full")
+
+    report = await run_suite(echo_suite(), EchoAgent(), store=Broken("sqlite://"))
+    assert (report.total, report.passed) == (3, 2)
+
+
 async def test_reports_are_saved_as_json(tmp_path: Path) -> None:
     report = await run_suite(echo_suite(), EchoAgent(), provider="fake", model="m")
     path = report.save(tmp_path / "evals")

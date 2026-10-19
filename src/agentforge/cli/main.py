@@ -6,6 +6,8 @@
     agentforge agents run <name> --data '{"text": "hi"}'   # or --input file.json, or stdin
     agentforge eval list
     agentforge eval run <agent|all> [--case NAME] [--min-pass-rate 0.8] [--out DIR]
+                         [--save-baseline] [--baseline-dir DIR] [--tolerance 0.05] [--markdown FILE]
+    agentforge eval compare <old.json> <new.json> [--tolerance 0.05] [--json]
     agentforge runs list [--agent NAME] [--status failed] [--limit 20] [--json]
     agentforge runs show <run_id> [--json]
     agentforge runs stats [--agent NAME] [--days 7] [--json]
@@ -17,7 +19,8 @@
 Results go to stdout (pretty by default, ``--json`` for scripts); logs go to
 stderr, so ``agentforge agents run ... --json | jq`` works.
 
-Exit codes: 0 success, 1 the agent run failed (or an eval fell below its pass rate),
+Exit codes: 0 success, 1 the agent run failed (or an eval fell below its pass rate or
+regressed against its baseline),
 2 bad input or usage.
 """
 
@@ -42,7 +45,21 @@ from agentforge import __version__
 from agentforge.config import LLMProvider, LogFormat, Settings, get_settings
 from agentforge.core.registry import UnknownAgentError, registry
 from agentforge.core.schemas import Message, RunStatus
-from agentforge.evals import CaseStatus, SuiteReport, UnknownCaseError, all_suites, run_suite
+from agentforge.evals import (
+    Baseline,
+    BaselineError,
+    CaseStatus,
+    Comparison,
+    SuiteReport,
+    UnknownCaseError,
+    all_suites,
+    baseline_from_report,
+    compare,
+    load_baseline,
+    render_markdown,
+    run_suite,
+)
+from agentforge.evals.baseline import DEFAULT_TOLERANCE
 from agentforge.llm import LLMError, LLMRequest, create_provider
 from agentforge.log import configure_logging
 from agentforge.storage import RunStore, StorageError, open_store
@@ -50,6 +67,7 @@ from agentforge.storage.runs import database_url
 
 EXIT_RUN_FAILED = 1
 EXIT_USAGE = 2
+DEFAULT_BASELINE_DIR = Path("docs/evals/baselines")
 
 app = typer.Typer(
     name="agentforge",
@@ -484,19 +502,43 @@ def eval_run(
         bool, typer.Option("--allow-fake", help="Allow the fake provider (tests and demos).")
     ] = False,
     as_json: Annotated[bool, typer.Option("--json", help="Print the summaries as JSON.")] = False,
+    baseline_dir: Annotated[
+        Path, typer.Option("--baseline-dir", help="Where the committed baselines live.")
+    ] = DEFAULT_BASELINE_DIR,
+    save_baseline: Annotated[
+        bool, typer.Option("--save-baseline", help="Record this run as the new baseline.")
+    ] = False,
+    tolerance: Annotated[
+        float,
+        typer.Option(
+            "--tolerance", min=0.0, max=1.0, help="Score drop that counts as a regression."
+        ),
+    ] = DEFAULT_TOLERANCE,
+    markdown: Annotated[
+        Path | None, typer.Option("--markdown", help="Also write a Markdown summary here.")
+    ] = None,
+    history: Annotated[
+        bool, typer.Option("--history/--no-history", help="Save each run to the run store.")
+    ] = True,
 ) -> None:
     """Run golden cases against the configured model and report pass rates.
 
-    Costs real tokens: one agent run per case. Needs a real provider and key.
+    Costs real tokens: one agent run per case. Needs a real provider and key. If a baseline
+    for the agent exists (``--baseline-dir``) the run is compared with it, and a case that got
+    worse makes the command exit 1. ``--save-baseline`` records a full run as the new baseline.
     """
     suites = all_suites()
     if agent != "all" and agent not in suites:
         raise _fail(f"no eval suite for '{agent}' (available: {', '.join(suites)}, all)")
     if agent == "all" and case:
         raise _fail("--case needs a single agent, not 'all'")
+    if save_baseline and case:
+        raise _fail("--save-baseline needs a full run, not --case")
     names = list(suites) if agent == "all" else [agent]
 
     settings = get_settings()
+    if save_baseline and settings.llm.provider is LLMProvider.FAKE:
+        raise _fail("a baseline must come from a real model, not the fake provider")
     if settings.llm.provider is LLMProvider.FAKE and not allow_fake:
         raise _fail(
             "the fake provider cannot solve eval cases. Set AGENTFORGE_LLM__PROVIDER "
@@ -507,8 +549,10 @@ def eval_run(
     except LLMError as exc:
         raise _fail(f"{type(exc).__name__}: {exc}") from None
     _load_agents()
+    store = _optional_store() if history else None
 
     reports: list[SuiteReport] = []
+    comparisons: dict[str, Comparison] = {}
     for name in names:
         instance = registry.create(name, llm=provider)
         try:
@@ -520,23 +564,107 @@ def eval_run(
                     concurrency=concurrency,
                     provider=settings.llm.provider.value,
                     model=settings.llm.model,
+                    store=store,
                 )
             )
         except UnknownCaseError as exc:
             raise _fail(str(exc)) from None
         reports.append(report)
+        candidate = baseline_from_report(report)
+        known = _baseline_for(baseline_dir, name)
+        if known is not None:
+            comparisons[name] = compare(known, candidate, tolerance=tolerance)
         if not as_json:
             _print_report(report)
+            if name in comparisons:
+                _print_comparison(comparisons[name])
         if save:
             path = report.save(out_dir)
             err.print(f"[dim]saved {escape(str(path))}[/]")
+        if save_baseline:
+            written = candidate.save(baseline_dir)
+            err.print(f"[dim]baseline written to {escape(str(written))}[/]")
+    if store is not None:
+        store.close()
 
+    if markdown is not None:
+        markdown.parent.mkdir(parents=True, exist_ok=True)
+        markdown.write_text(render_markdown(reports, comparisons), encoding="utf-8")
+        err.print(f"[dim]summary written to {escape(str(markdown))}[/]")
     if as_json:
-        _print_json([r.summary() for r in reports])
+        _print_json(
+            [
+                {
+                    **r.summary(),
+                    "baseline": comparisons[r.agent].model_dump(mode="json")
+                    if r.agent in comparisons
+                    else None,
+                }
+                for r in reports
+            ]
+        )
     else:
         _print_totals(reports)
-    if any(r.pass_rate < min_pass_rate for r in reports):
+    regressed = [c.agent for c in comparisons.values() if c.regressed]
+    if regressed:
+        err.print(f"[red]Regressed against the baseline:[/] {escape(', '.join(regressed))}")
+    if regressed or any(r.pass_rate < min_pass_rate for r in reports):
         raise typer.Exit(EXIT_RUN_FAILED)
+
+
+@eval_app.command("compare")
+def eval_compare(
+    old: Annotated[Path, typer.Argument(help="Baseline or saved report to compare against.")],
+    new: Annotated[Path, typer.Argument(help="The newer baseline or saved report.")],
+    tolerance: Annotated[
+        float, typer.Option("--tolerance", min=0.0, max=1.0, help="Score drop that counts.")
+    ] = DEFAULT_TOLERANCE,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of text.")] = False,
+) -> None:
+    """Compare two baselines or saved eval reports of the same agent. Exit 1 on regressions."""
+    try:
+        comparison = compare(load_baseline(old), load_baseline(new), tolerance=tolerance)
+    except BaselineError as exc:
+        raise _fail(str(exc)) from None
+    if as_json:
+        _print_json(comparison.model_dump(mode="json"))
+    else:
+        _print_comparison(comparison)
+    if comparison.regressed:
+        raise typer.Exit(EXIT_RUN_FAILED)
+
+
+def _baseline_for(folder: Path, agent: str) -> Baseline | None:
+    path = folder / f"{agent}.json"
+    if not path.is_file():
+        return None
+    try:
+        return load_baseline(path)
+    except BaselineError as exc:
+        err.print(f"[yellow]Warning:[/] ignoring the baseline: {escape(str(exc))}")
+        return None
+
+
+def _print_comparison(c: Comparison) -> None:
+    out.print(
+        f"[bold]vs baseline[/] ({escape(c.baseline)}) on {c.compared} case(s): "
+        f"pass rate {c.pass_rate_before:.0%} → {c.pass_rate_after:.0%} · "
+        f"mean score {c.mean_score_before:.2f} → {c.mean_score_after:.2f} · "
+        f"tokens {c.tokens_before} → {c.tokens_after} · "
+        f"cost ${c.cost_before:.4f} → ${c.cost_after:.4f}"
+    )
+    for change in c.changes:
+        style = "red" if change.kind.value == "regression" else "green"
+        out.print(
+            f"  [{style}]{change.kind.value}[/] {escape(change.case)}: "
+            f"{escape(change.before)} → {escape(change.after)}"
+        )
+    if not c.changes:
+        out.print("  no case changed")
+    if c.new_cases:
+        out.print(f"  new cases: {escape(', '.join(c.new_cases))}")
+    if c.missing_cases:
+        out.print(f"  not run: {escape(', '.join(c.missing_cases))}")
 
 
 _STATUS_STYLE = {

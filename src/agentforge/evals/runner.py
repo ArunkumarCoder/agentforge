@@ -9,7 +9,8 @@ scorer, and records the result. A case ends as one of:
 - ``error``: the agent did not produce an output (or scoring itself crashed).
 
 Reports are plain JSON (``SuiteReport.model_dump_json``) so runs can be saved,
-compared and charted later; Week 5 adds a store and history on top.
+compared and charted later. When a run store is given, every case's run is also saved to it
+(``source='eval'``) and the case result carries its ``run_id``.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from agentforge.core.agent import BaseAgent
 from agentforge.core.schemas import Contract, RunResult
 from agentforge.evals.scoring import Check
 from agentforge.evals.suites import Suite
+from agentforge.storage import RunStore
 
 
 class CaseStatus(StrEnum):
@@ -114,7 +116,9 @@ class UnknownCaseError(ValueError):
     """A requested case name does not exist in the suite."""
 
 
-async def _run_case(suite: Suite, agent: BaseAgent[Any, Any], case: Any) -> CaseResult:
+async def _run_case(
+    suite: Suite, agent: BaseAgent[Any, Any], case: Any, store: RunStore | None = None
+) -> CaseResult:
     name: str = case.name
     started = time.perf_counter()
 
@@ -141,9 +145,14 @@ async def _run_case(suite: Suite, agent: BaseAgent[Any, Any], case: Any) -> Case
         )
 
     try:
-        result = await agent.arun(suite.make_input(case))
+        data = suite.make_input(case)
+        result = await agent.arun(data)
     except Exception as exc:  # an agent should never raise, but a harness must survive it
         return done(CaseStatus.ERROR, error=f"{type(exc).__name__}: {exc}")
+    if store is not None:
+        await asyncio.to_thread(
+            store.try_save, result, input=data.model_dump(mode="json"), source="eval"
+        )
     if not result.ok or result.output is None:
         reason = (
             f"{result.error.kind.value}: {result.error.message}" if result.error else "no output"
@@ -166,8 +175,12 @@ async def run_suite(
     concurrency: int = 1,
     provider: str = "",
     model: str = "",
+    store: RunStore | None = None,
 ) -> SuiteReport:
-    """Run ``suite`` against ``agent`` (all cases, or just the named ones) and report."""
+    """Run ``suite`` against ``agent`` (all cases, or just the named ones) and report.
+
+    With a ``store``, each case's run is saved there too (failures to save are only logged).
+    """
     available = {c.name: c for c in suite.load_cases()}
     if cases:
         unknown = [name for name in cases if name not in available]
@@ -185,7 +198,7 @@ async def run_suite(
 
     async def guarded(case: Any) -> CaseResult:
         async with limit:
-            return await _run_case(suite, agent, case)
+            return await _run_case(suite, agent, case, store)
 
     results = await asyncio.gather(*(guarded(c) for c in chosen))
     return SuiteReport(
