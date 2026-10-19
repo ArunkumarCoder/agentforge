@@ -6,6 +6,10 @@
     agentforge agents run <name> --data '{"text": "hi"}'   # or --input file.json, or stdin
     agentforge eval list
     agentforge eval run <agent|all> [--case NAME] [--min-pass-rate 0.8] [--out DIR]
+    agentforge runs list [--agent NAME] [--status failed] [--limit 20] [--json]
+    agentforge runs show <run_id> [--json]
+    agentforge runs stats [--agent NAME] [--days 7] [--json]
+    agentforge runs prune --days 30 [--yes]
     agentforge llm ping [--prompt "..."]
     agentforge config show
     agentforge serve [--host 127.0.0.1] [--port 8000]
@@ -22,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -36,10 +41,12 @@ from rich.table import Table
 from agentforge import __version__
 from agentforge.config import LLMProvider, LogFormat, Settings, get_settings
 from agentforge.core.registry import UnknownAgentError, registry
-from agentforge.core.schemas import Message
+from agentforge.core.schemas import Message, RunStatus
 from agentforge.evals import CaseStatus, SuiteReport, UnknownCaseError, all_suites, run_suite
 from agentforge.llm import LLMError, LLMRequest, create_provider
 from agentforge.log import configure_logging
+from agentforge.storage import RunStore, StorageError, open_store
+from agentforge.storage.runs import database_url
 
 EXIT_RUN_FAILED = 1
 EXIT_USAGE = 2
@@ -55,8 +62,10 @@ agents_app = typer.Typer(help="List, inspect and run agents.", no_args_is_help=T
 llm_app = typer.Typer(help="Check the configured LLM provider.", no_args_is_help=True)
 config_app = typer.Typer(help="Show the effective configuration.", no_args_is_help=True)
 eval_app = typer.Typer(help="Run agents' golden eval cases.", no_args_is_help=True)
+runs_app = typer.Typer(help="Browse the saved run history.", no_args_is_help=True)
 app.add_typer(agents_app, name="agents")
 app.add_typer(eval_app, name="eval")
+app.add_typer(runs_app, name="runs")
 app.add_typer(llm_app, name="llm")
 app.add_typer(config_app, name="config")
 
@@ -179,7 +188,11 @@ def agents_run(
     except UnknownAgentError as exc:
         raise _fail(str(exc)) from None
     payload = _read_input(data, input_file)
+    store = _optional_store()
     result = asyncio.run(agent.arun(payload))
+    if store is not None:
+        store.try_save(result, input=payload, source="cli")
+        store.close()
 
     if as_json:
         out.print_json(result.model_dump_json())
@@ -222,6 +235,181 @@ def _read_input(data: str | None, input_file: Path | None) -> dict[str, Any]:
     return parsed
 
 
+# --------------------------------------------------------------------------- runs
+
+
+def _optional_store() -> RunStore | None:
+    """The run store if one is configured. A broken one is a warning, not a reason to refuse
+    to run the agent."""
+    try:
+        return open_store(get_settings())
+    except StorageError as exc:
+        err.print(f"[yellow]Warning:[/] runs will not be saved: {escape(str(exc))}")
+        return None
+
+
+def _required_store() -> RunStore:
+    settings = get_settings()
+    if settings.storage.url is None:
+        raise _fail(
+            "run history is off. Set AGENTFORGE_STORAGE__URL, e.g. sqlite:///.agentforge/runs.db "
+            "or postgresql://user:password@localhost/agentforge"
+        )
+    try:
+        store = open_store(settings)
+    except StorageError as exc:
+        raise _fail(str(exc), EXIT_RUN_FAILED) from None
+    assert store is not None  # noqa: S101 - the URL was checked above
+    return store
+
+
+@runs_app.command("list")
+def runs_list(
+    agent: Annotated[str | None, typer.Option("--agent", "-a", help="Only this agent.")] = None,
+    status: Annotated[
+        RunStatus | None, typer.Option("--status", "-s", help="succeeded or failed.")
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", "-n", min=1, max=500)] = 20,
+    offset: Annotated[int, typer.Option("--offset", min=0)] = 0,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")] = False,
+) -> None:
+    """List saved runs, newest first."""
+    store = _required_store()
+    try:
+        page = store.list_runs(agent=agent, status=status, limit=limit, offset=offset)
+    except StorageError as exc:
+        raise _fail(str(exc), EXIT_RUN_FAILED) from None
+    finally:
+        store.close()
+    if as_json:
+        _print_json(page.model_dump(mode="json"))
+        return
+    table = Table(
+        title=f"{len(page.runs)} of {page.total} run(s)", title_justify="left", show_lines=False
+    )
+    table.add_column("Run", no_wrap=True)
+    table.add_column("Agent", style="bold cyan")
+    table.add_column("Status")
+    table.add_column("Started (UTC)", no_wrap=True)
+    table.add_column("Time", justify="right", no_wrap=True)
+    table.add_column("Tokens", justify="right", no_wrap=True)
+    table.add_column("Cost", justify="right", no_wrap=True)
+    for r in page.runs:
+        outcome = "[green]ok[/]" if r.status is RunStatus.SUCCEEDED else f"[red]{r.error_kind}[/]"
+        table.add_row(
+            r.run_id,
+            escape(r.agent),
+            outcome,
+            r.started_at.strftime("%m-%d %H:%M:%S"),
+            f"{r.duration_ms / 1000:.1f}s",
+            str(r.input_tokens + r.output_tokens),
+            f"${r.cost_usd:.4f}",
+        )
+    out.print(table)
+
+
+@runs_app.command("show")
+def runs_show(
+    run_id: Annotated[str, typer.Argument(help="A run id from `agentforge runs list`.")],
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the whole record as JSON.")
+    ] = False,
+) -> None:
+    """Show one saved run: input, output or error, usage and timing."""
+    store = _required_store()
+    try:
+        record = store.get(run_id)
+    except StorageError as exc:
+        raise _fail(str(exc), EXIT_RUN_FAILED) from None
+    finally:
+        store.close()
+    if record is None:
+        raise _fail(f"no run with id '{run_id}'")
+    if as_json:
+        _print_json(record.model_dump(mode="json"))
+        return
+    ok = record.status is RunStatus.SUCCEEDED
+    header = (
+        f"{'[green]succeeded[/]' if ok else '[red]failed[/]'} · {record.input_tokens} in / "
+        f"{record.output_tokens} out tokens · ${record.cost_usd:.4f} · "
+        f"{record.duration_ms / 1000:.1f}s · {record.started_at:%Y-%m-%d %H:%M:%S} UTC · "
+        f"via {record.source}"
+    )
+    out.print(
+        Panel(
+            header, title=f"{escape(record.agent)} {escape(record.agent_version)} · {record.run_id}"
+        )
+    )
+    if record.error_kind:
+        out.print(f"[red]{record.error_kind}[/] {escape(record.error_type or '')}")
+        out.print(escape(record.error_message or ""), highlight=False)
+    for label, body in (("Input", record.input), ("Output", record.output)):
+        if body is not None:
+            out.print(f"[bold]{label}[/]")
+            out.print(Syntax(json.dumps(body, indent=2), "json", word_wrap=True))
+    if record.input is None:
+        out.print("[dim]input was not stored[/]")
+
+
+@runs_app.command("stats")
+def runs_stats(
+    agent: Annotated[str | None, typer.Option("--agent", "-a", help="Only this agent.")] = None,
+    days: Annotated[
+        int | None, typer.Option("--days", min=1, help="Only runs from the last N days.")
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")] = False,
+) -> None:
+    """Per-agent totals: runs, success rate, average time, tokens and cost."""
+    store = _required_store()
+    try:
+        stats = store.stats(agent=agent, since=timedelta(days=days) if days else None)
+    except StorageError as exc:
+        raise _fail(str(exc), EXIT_RUN_FAILED) from None
+    finally:
+        store.close()
+    if as_json:
+        _print_json([s.model_dump(mode="json") for s in stats])
+        return
+    table = Table(title=f"{len(stats)} agent(s)", title_justify="left")
+    table.add_column("Agent", style="bold cyan", no_wrap=True)
+    for column in ("Runs", "Failed", "Success", "Avg time", "Tokens", "Cost"):
+        table.add_column(column, justify="right")
+    for s in stats:
+        table.add_row(
+            escape(s.agent),
+            str(s.runs),
+            str(s.failed),
+            f"{s.success_rate:.0%}",
+            f"{s.avg_duration_ms / 1000:.1f}s",
+            str(s.input_tokens + s.output_tokens),
+            f"${s.cost_usd:.4f}",
+        )
+    out.print(table)
+    out.print(
+        f"[bold]{sum(s.runs for s in stats)} run(s)[/] · "
+        f"{sum(s.input_tokens + s.output_tokens for s in stats)} tokens · "
+        f"${sum(s.cost_usd for s in stats):.4f}"
+    )
+
+
+@runs_app.command("prune")
+def runs_prune(
+    days: Annotated[int, typer.Option("--days", min=0, help="Delete runs older than N days.")],
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask first.")] = False,
+) -> None:
+    """Delete old runs (inputs can contain source code you may not want to keep)."""
+    store = _required_store()
+    try:
+        if not yes and not typer.confirm(f"Delete every saved run older than {days} day(s)?"):
+            raise typer.Exit(EXIT_USAGE)
+        deleted = store.prune(timedelta(days=days))
+    except StorageError as exc:
+        raise _fail(str(exc), EXIT_RUN_FAILED) from None
+    finally:
+        store.close()
+    out.print(f"Deleted {deleted} run(s).")
+
+
 # --------------------------------------------------------------------------- serve
 
 
@@ -245,8 +433,13 @@ def serve(
             "sent. Set AGENTFORGE_API__API_KEY, or use the default 127.0.0.1"
         )
     served = settings.model_copy(update={"api": api})
-    err.print(f"Serving on http://{api.host}:{api.port} (interactive docs at /docs)")
-    uvicorn.run(create_app(served), host=api.host, port=api.port, log_config=None)
+    try:
+        application = create_app(served)
+    except StorageError as exc:
+        raise _fail(str(exc), EXIT_RUN_FAILED) from None
+    history = "saving runs" if served.storage.url else "run history is off"
+    err.print(f"Serving on http://{api.host}:{api.port} (interactive docs at /docs; {history})")
+    uvicorn.run(application, host=api.host, port=api.port, log_config=None)
 
 
 # --------------------------------------------------------------------------- eval
@@ -425,7 +618,19 @@ def _public_settings(settings: Settings) -> dict[str, Any]:
     data["anthropic_api_key"] = "set" if settings.anthropic_api_key else "not set"
     data["openai_api_key"] = "set" if settings.openai_api_key else "not set"
     data["api"]["api_key"] = "set" if settings.api.api_key else "not set"
+    data["storage"]["url"] = _masked_url(settings)
     return data
+
+
+def _masked_url(settings: Settings) -> str:
+    """The database URL with its password hidden, or 'off'."""
+    url = settings.storage.url
+    if url is None:
+        return "off"
+    try:
+        return database_url(url.get_secret_value()).render_as_string(hide_password=True)
+    except StorageError:
+        return "set (invalid)"
 
 
 if __name__ == "__main__":  # pragma: no cover

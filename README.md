@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 4 complete ([review](docs/reviews/week-04.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Next: hardening, PostgreSQL run storage, a first measured eval baseline and the v0.1.0 release.
+> **Status:** Week 4 complete ([review](docs/reviews/week-04.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) is the first Week 5 piece. Next: hardening, a first measured eval baseline and the v0.1.0 release.
 
 ## Quick start (dev)
 
@@ -28,6 +28,8 @@ uv run agentforge agents list                               # what's available
 uv run agentforge agents show echo                          # description + input/output schema
 uv run agentforge agents run echo -d '{"text": "hi"}'       # run once (pretty output)
 uv run agentforge agents run echo -i input.json --json      # full RunResult as JSON (also: -i - for stdin)
+uv run agentforge runs list                                 # saved run history (needs AGENTFORGE_STORAGE__URL)
+uv run agentforge runs stats                                # per-agent runs, success rate, tokens and cost
 uv run agentforge llm ping                                  # check provider, key, tokens and cost
 uv run agentforge config show                               # effective settings (keys shown as set/not set)
 uv run agentforge serve                                     # HTTP API on http://127.0.0.1:8000 (docs at /docs)
@@ -137,6 +139,28 @@ curl -X POST localhost:8000/agents/echo/run -H 'Content-Type: application/json' 
 - `repo_path` is refused (`403`): send the code in `files`. To let callers name a folder on the server, set `AGENTFORGE_API__ALLOW_REPO_PATHS=true` **and** `AGENTFORGE_API__REPO_ROOT`; paths must then stay inside that folder.
 - Bodies over 5 MB are refused (`413`) and at most 4 runs execute at once (`AGENTFORGE_API__MAX_BODY_BYTES`, `AGENTFORGE_API__MAX_CONCURRENT_RUNS`).
 
+## Run history
+
+Every agent run can be saved, successful or not, with its input, output or error, tokens, cost and timing. It is off until you give it a database, so nothing is written by surprise:
+
+```bash
+# .env
+AGENTFORGE_STORAGE__URL=sqlite:///.agentforge/runs.db                       # a local file, no server needed
+# AGENTFORGE_STORAGE__URL=postgresql://user:password@localhost:5432/agentforge   # or PostgreSQL
+
+uv run agentforge agents run echo -d '{"text": "hi"}'    # saved as a side effect
+uv run agentforge runs list --status failed -n 10        # newest first; also --agent NAME, --json
+uv run agentforge runs show <run_id>                     # input, output or error, usage, timing
+uv run agentforge runs stats --days 7                    # per agent: runs, success rate, avg time, tokens, cost
+uv run agentforge runs prune --days 30                   # delete older runs
+```
+
+`agentforge serve` saves every API run too and adds `GET /runs` (`?agent=&status=&limit=&offset=`), `GET /runs/stats` (`?agent=&days=`) and `GET /runs/{run_id}`; these answer `503` when no database is configured and need the API key like everything else. The tables are created on first use; there are no migrations yet.
+
+- **A run never fails because its history could not be saved.** The error is logged (`runs.save_failed`) and the run returns normally. A database URL that cannot be opened stops `agentforge serve` at startup, and is only a warning for `agents run`.
+- **Inputs can be sensitive** (source code, diffs, configs). Set `AGENTFORGE_STORAGE__STORE_INPUTS=false` to keep everything but the input, and use `runs prune` to expire old rows. `config show` hides the password in the URL.
+- PostgreSQL stores inputs and outputs as `JSONB`. The bundled `psycopg` driver is used for `postgresql://` URLs.
+
 ## Your first agent
 
 ```python
@@ -176,6 +200,7 @@ src/agentforge/
 ├── agents/          # the agents themselves (auto-discovered); echo for smoke tests
 ├── api/             # HTTP API (FastAPI): list, describe and run agents
 ├── cli/             # `agentforge` command (Typer + Rich)
+├── storage/         # run history in SQLite or PostgreSQL (SQLAlchemy)
 ├── core/            # schemas, BaseAgent, errors, tool-calling loop, agent registry
 ├── llm/             # LLMProvider, Anthropic/OpenAI/Ollama/Fake, retries, pricing, cache
 └── tools/           # BaseTool, @tool, ToolRegistry, permissions
@@ -312,6 +337,8 @@ Settings live in `src/agentforge/config.py` and are read from environment variab
 | `AGENTFORGE_API__API_KEY` | — | Bearer token for the API; required to listen on a non-loopback host |
 | `AGENTFORGE_API__ALLOW_REPO_PATHS` / `__REPO_ROOT` | `false` / — | Let callers use `repo_path`, only inside the root folder |
 | `AGENTFORGE_API__MAX_CONCURRENT_RUNS` / `__MAX_BODY_BYTES` | `4` / `5000000` | Limits on simultaneous runs and request size |
+| `AGENTFORGE_STORAGE__URL` | — (history off) | `sqlite:///path.db` or `postgresql://user:password@host/db`; every run is saved there |
+| `AGENTFORGE_STORAGE__STORE_INPUTS` | `true` | Keep each run's input next to its output |
 | `ANTHROPIC_API_KEY` | — | Anthropic key (`AGENTFORGE_ANTHROPIC_API_KEY` also works) |
 | `OPENAI_API_KEY` | — | OpenAI key (`AGENTFORGE_OPENAI_API_KEY` also works) |
 

@@ -4,6 +4,13 @@
     GET  /agents                 every agent: name, version, description, tags
     GET  /agents/{name}          one agent with its input and output JSON Schemas
     POST /agents/{name}/run      body = the agent's input (a JSON object); returns the RunResult
+    GET  /runs                   saved runs, newest first (?agent=&status=&limit=&offset=)
+    GET  /runs/stats             per-agent totals: runs, success rate, tokens, cost (?agent=&days=)
+    GET  /runs/{run_id}          one saved run with its input and output
+
+The ``/runs`` routes need run storage (``AGENTFORGE_STORAGE__URL``); without it they answer 503
+and runs are simply not saved. A run is saved after it finishes, whatever its status; if the
+database fails the run still returns normally and a warning is logged.
 
 ``POST .../run`` always answers with the full ``RunResult``. The HTTP status says how it
 went: 200 succeeded, 422 the input was invalid, 502 the model's answer never passed the
@@ -20,10 +27,12 @@ from __future__ import annotations
 import asyncio
 import json
 import secrets
-from collections.abc import Callable
-from typing import Any
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
+from datetime import timedelta
+from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -33,8 +42,9 @@ from agentforge.core.agent import BaseAgent
 from agentforge.core.errors import AgentForgeError
 from agentforge.core.llm_agent import LLMAgent
 from agentforge.core.registry import UnknownAgentError, registry
-from agentforge.core.schemas import AgentCard, ErrorKind
+from agentforge.core.schemas import AgentCard, ErrorKind, RunStatus
 from agentforge.llm import LLMProvider, create_provider
+from agentforge.storage import AgentStats, RunPage, RunRecord, RunStore, StorageError, open_store
 
 type AgentFactory = Callable[[str], BaseAgent[Any, Any]]
 
@@ -76,21 +86,45 @@ def default_factory(settings: Settings) -> AgentFactory:
 
 
 def create_app(
-    settings: Settings | None = None, *, agent_factory: AgentFactory | None = None
+    settings: Settings | None = None,
+    *,
+    agent_factory: AgentFactory | None = None,
+    store: RunStore | None = None,
 ) -> FastAPI:
-    """Build the application. Tests pass their own settings and agent factory."""
+    """Build the application. Tests pass their own settings, agent factory and run store.
+
+    Without an explicit ``store`` the one in ``settings.storage`` is opened here, so a bad
+    database URL stops the server at startup (``StorageError``) instead of on the first run.
+    """
     settings = settings or get_settings()
     api = settings.api
     registry.discover()
     factory = agent_factory or default_factory(settings)
     slots = asyncio.Semaphore(api.max_concurrent_runs)
+    owned = store is None
+    runs_db = store if store is not None else open_store(settings)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        yield
+        if owned and runs_db is not None:
+            runs_db.close()
 
     app = FastAPI(
         title="AgentForge",
         version=__version__,
         description="Run AgentForge's agents over HTTP. Agents execute the code you send "
         "them, so keep this service private.",
+        lifespan=lifespan,
     )
+
+    def require_store() -> RunStore:
+        if runs_db is None:
+            raise HTTPException(
+                status_code=503,
+                detail="run storage is not configured (set AGENTFORGE_STORAGE__URL)",
+            )
+        return runs_db
 
     def require_key(request: Request) -> None:
         if api.api_key is None:
@@ -148,6 +182,8 @@ def create_app(
             raise HTTPException(status_code=503, detail=f"{type(exc).__name__}: {exc}") from None
         async with slots:
             result = await agent.arun(payload)
+        if runs_db is not None:
+            await asyncio.to_thread(runs_db.try_save, result, input=payload, source="api")
         code = 200 if result.error is None else _STATUS_FOR_ERROR[result.error.kind]
         return JSONResponse(
             status_code=code,
@@ -155,7 +191,43 @@ def create_app(
             headers={"X-Run-Id": result.run_id},
         )
 
+    @app.get("/runs", tags=["runs"], dependencies=protected)
+    def list_runs(
+        agent: str | None = None,
+        status: RunStatus | None = None,
+        limit: Annotated[int, Query(ge=1, le=200)] = 20,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> RunPage:
+        return _storage_call(
+            lambda: require_store().list_runs(
+                agent=agent, status=status, limit=limit, offset=offset
+            )
+        )
+
+    # Declared before /runs/{run_id} so that "stats" is not read as a run id.
+    @app.get("/runs/stats", tags=["runs"], dependencies=protected)
+    def run_stats(
+        agent: str | None = None, days: Annotated[int | None, Query(ge=1, le=3650)] = None
+    ) -> list[AgentStats]:
+        since = timedelta(days=days) if days is not None else None
+        return _storage_call(lambda: require_store().stats(agent=agent, since=since))
+
+    @app.get("/runs/{run_id}", tags=["runs"], dependencies=protected)
+    def get_run(run_id: str) -> RunRecord:
+        record = _storage_call(lambda: require_store().get(run_id))
+        if record is None:
+            raise HTTPException(status_code=404, detail=f"no run with id '{run_id}'")
+        return record
+
     return app
+
+
+def _storage_call[T](call: Callable[[], T]) -> T:
+    """Turn a database failure into a 503 instead of a stack trace."""
+    try:
+        return call()
+    except StorageError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
 async def _read_object(request: Request, api: ApiSettings) -> dict[str, Any]:

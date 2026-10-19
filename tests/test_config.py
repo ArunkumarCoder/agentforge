@@ -103,3 +103,21 @@ def test_get_settings_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     assert get_settings() is first
     get_settings.cache_clear()
     assert get_settings().llm.model == "changed"
+
+
+def test_storage_is_off_by_default_and_blank_means_off() -> None:
+    assert Settings(_env_file=None).storage.url is None  # type: ignore[call-arg]
+    blank = Settings(_env_file=None, storage={"url": "   "})  # type: ignore[call-arg, arg-type]
+    assert blank.storage.url is None
+
+
+def test_storage_url_comes_from_the_environment_and_stays_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENTFORGE_STORAGE__URL", "postgresql://u:pw@h/db")
+    monkeypatch.setenv("AGENTFORGE_STORAGE__STORE_INPUTS", "false")
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.storage.url is not None
+    assert s.storage.url.get_secret_value() == "postgresql://u:pw@h/db"
+    assert "pw" not in repr(s)
+    assert s.storage.store_inputs is False

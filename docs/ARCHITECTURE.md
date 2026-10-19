@@ -95,7 +95,7 @@ Each layer may import only from the layers **below** it.
 | **Agent card** | Machine-readable description of an agent's capabilities and schemas; the orchestrator's router reads it. |
 | **Tool** | A function with a Pydantic argument schema (exported as JSON Schema to the LLM) and a permission level: `read`, `write`, `network`, `exec`. |
 | **LLMProvider** | `complete(messages, tools, response_schema) -> LLMResponse`. Implementations: Anthropic, OpenAI, Ollama, Fake. |
-| **Run** | One execution: input, output, tool calls, tokens, cost, latency, status, trace ID. Persisted to Postgres (from week 5). |
+| **Run** | One execution: input, output, tool calls, tokens, cost, latency, status, trace ID. Saved to SQLite or PostgreSQL by the run store (`agentforge.storage`, opt-in with `AGENTFORGE_STORAGE__URL`). Tool-call traces are not stored yet. |
 | **Eval case** | An input plus expectations (exact fields, checks, or a judge rubric). Stored in `agents/<name>/evals/`. |
 
 ## 6. How a single agent run works

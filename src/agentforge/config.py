@@ -97,6 +97,18 @@ class ApiSettings(BaseModel):
         return self.host in {"127.0.0.1", "localhost", "::1"}
 
 
+class StorageSettings(BaseModel):
+    """Run history. Off unless a database URL is set (SQLite file or PostgreSQL)."""
+
+    url: SecretStr | None = None  # sqlite:///runs.db or postgresql://user:pw@host/db
+    store_inputs: bool = True  # keep each run's input (code, diffs) next to its output
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def _blank_url_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+
 class Settings(BaseSettings):
     """All runtime configuration for AgentForge."""
 
@@ -112,6 +124,7 @@ class Settings(BaseSettings):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
 
     # Provider keys accept the providers' standard variable names as well.
     anthropic_api_key: SecretStr | None = Field(

@@ -84,7 +84,15 @@ def test_unknown_agent_is_404() -> None:
 
 def test_openapi_document_lists_the_routes() -> None:
     paths = client().get("/openapi.json").json()["paths"]
-    assert set(paths) == {"/health", "/agents", "/agents/{name}", "/agents/{name}/run"}
+    assert set(paths) == {
+        "/health",
+        "/agents",
+        "/agents/{name}",
+        "/agents/{name}/run",
+        "/runs",
+        "/runs/stats",
+        "/runs/{run_id}",
+    }
 
 
 # --------------------------------------------------------------------------- running
