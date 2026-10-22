@@ -27,6 +27,7 @@ Everything below is what v0.1.0 (target: 30 October 2026) will contain. The vers
 - Run history in SQLite or PostgreSQL: `agentforge runs list|show|stats|prune` and `GET /runs`.
 - Eval baselines and regression checks: `eval run --save-baseline`, `eval compare`, a Markdown results summary, and eval runs saved to the run history.
 - Sandbox limits for model-written code (CPU, memory, file size, output cap, process-group kill) and `docs/SECURITY.md`.
+- `agentforge agents example` and `agents run --example`: a ready-made, tested input for every agent, taken from its golden eval cases.
 - `agentforge doctor`: one command that checks the runtime, model, price table, database, limits, API exposure, tools, agents and baselines, with an optional live `--ping`.
 
 ### Known limitations

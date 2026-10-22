@@ -4,6 +4,8 @@
     agentforge agents list [--json]
     agentforge agents show <name>
     agentforge agents run <name> --data '{"text": "hi"}'   # or --input file.json, or stdin
+    agentforge agents run <name> --example [--case NAME]    # run one of its golden eval inputs
+    agentforge agents example <name> [--case NAME] [--list]  # print a ready-made input
     agentforge eval list
     agentforge eval run <agent|all> [--case NAME] [--min-pass-rate 0.8] [--out DIR]
                          [--save-baseline] [--baseline-dir DIR] [--tolerance 0.05] [--markdown FILE]
@@ -197,6 +199,12 @@ def agents_run(
         Path | None,
         typer.Option("--input", "-i", help="Input JSON file ('-' reads stdin).", allow_dash=True),
     ] = None,
+    example: Annotated[
+        bool, typer.Option("--example", help="Use a ready-made input (see `agents example`).")
+    ] = False,
+    case: Annotated[
+        str | None, typer.Option("--case", "-c", help="With --example: which golden case.")
+    ] = None,
     as_json: Annotated[
         bool, typer.Option("--json", help="Print the full RunResult as JSON.")
     ] = False,
@@ -207,7 +215,14 @@ def agents_run(
         agent = registry.create(name)
     except UnknownAgentError as exc:
         raise _fail(str(exc)) from None
-    payload = _read_input(data, input_file)
+    if example:
+        if data is not None or input_file is not None:
+            raise _fail("use --example on its own, not with --data or --input")
+        payload = _example_input(name, case)
+    elif case is not None:
+        raise _fail("--case only works together with --example")
+    else:
+        payload = _read_input(data, input_file)
     store = _optional_store()
     result = asyncio.run(agent.arun(payload))
     if store is not None:
@@ -229,6 +244,62 @@ def agents_run(
         err.print(f"[red]✗[/] {escape(result.agent)} failed {escape(reason)}")
     if not result.ok:
         raise typer.Exit(EXIT_RUN_FAILED)
+
+
+# Agents without eval cases, or whose first case is no good as a first try.
+BUILTIN_EXAMPLES: dict[str, dict[str, Any]] = {"echo": {"text": "hello world", "upper": False}}
+
+
+def _example_cases(name: str) -> dict[str, dict[str, Any]]:
+    """Ready-made inputs for ``name`` by name: its golden eval cases, in file order."""
+    if name in BUILTIN_EXAMPLES:
+        return {"hello": BUILTIN_EXAMPLES[name]}
+    suite = all_suites().get(name)
+    if suite is None:
+        raise _fail(
+            f"no example for '{name}'. Agents with examples: "
+            f"{', '.join(sorted([*BUILTIN_EXAMPLES, *all_suites()]))}"
+        )
+    return {
+        c.name: suite.make_input(c).model_dump(mode="json")
+        for c in sorted(suite.load_cases(), key=lambda c: c.name)
+    }
+
+
+def _example_input(name: str, case: str | None) -> dict[str, Any]:
+    cases = _example_cases(name)
+    if case is None:
+        return next(iter(cases.values()))
+    if case not in cases:
+        raise _fail(f"no example case '{case}' for {name} (available: {', '.join(cases)})")
+    return cases[case]
+
+
+@agents_app.command("example")
+def agents_example(
+    name: Annotated[str, typer.Argument(help="Agent name, e.g. 'code-review'.")],
+    case: Annotated[
+        str | None, typer.Option("--case", "-c", help="Which example (default: the first).")
+    ] = None,
+    list_cases: Annotated[
+        bool, typer.Option("--list", help="List the available examples instead.")
+    ] = False,
+) -> None:
+    """Print a ready-made input for an agent (one of its golden eval cases) as JSON.
+
+    Pipe it straight in: ``agentforge agents example code-review | agentforge agents run
+    code-review -i -``.
+    """
+    _load_agents()
+    try:
+        registry.get(name)
+    except UnknownAgentError as exc:
+        raise _fail(str(exc)) from None
+    if list_cases:
+        for case_name in _example_cases(name):
+            out.print(escape(case_name), highlight=False)
+        return
+    _print_json(_example_input(name, case))
 
 
 def _read_input(data: str | None, input_file: Path | None) -> dict[str, Any]:

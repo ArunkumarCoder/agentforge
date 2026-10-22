@@ -28,6 +28,8 @@ uv run agentforge agents list                               # what's available
 uv run agentforge agents show echo                          # description + input/output schema
 uv run agentforge agents run echo -d '{"text": "hi"}'       # run once (pretty output)
 uv run agentforge agents run echo -i input.json --json      # full RunResult as JSON (also: -i - for stdin)
+uv run agentforge agents example code-review                # a ready-made input for any agent (its golden eval case)
+uv run agentforge agents run code-review --example          # ...or run it straight away (needs a real model)
 uv run agentforge runs list                                 # saved run history (needs AGENTFORGE_STORAGE__URL)
 uv run agentforge runs stats                                # per-agent runs, success rate, tokens and cost
 uv run agentforge llm ping                                  # check provider, key, tokens and cost
@@ -36,6 +38,8 @@ uv run agentforge config show                               # effective settings
 uv run agentforge serve                                     # HTTP API on http://127.0.0.1:8000 (docs at /docs)
 uv run agentforge -v ...                                    # show info logs (quiet by default)
 ```
+
+**Try any agent without writing its input.** `agents example <name>` prints a valid input as JSON, taken from the agent's golden eval cases (`--list` shows the cases, `-c NAME` picks one), and `agents run <name> --example` runs it. So `agentforge agents example security-audit | agentforge agents run security-audit -i -` works for every agent. A test checks that every example is accepted by its agent's input model, so these never go stale.
 
 `agentforge doctor` is the first thing to run on a new machine or after editing `.env`. It checks, offline, that the Python version and packages are right, that the configured model has its key and a known price (an unpriced model reports every cost as $0.00), that the run database opens, what the sandbox limits are, whether the API would be exposed without a key, that git and psql are present, that every agent has eval cases, and whether baselines are recorded. Warnings do not fail it; failures exit 1. `--ping` also sends one short request to the model.
 

@@ -38,6 +38,7 @@ Also confirm CI is green on Linux and Windows for the release commit.
 rm -rf dist && uv build
 uv venv --python 3.12 /tmp/release-check && uv pip install --python /tmp/release-check/bin/python dist/*.whl
 cd "$(mktemp -d)" && /tmp/release-check/bin/agentforge --version && /tmp/release-check/bin/agentforge doctor
+/tmp/release-check/bin/agentforge agents run echo --example
 ```
 
 The wheel must contain the 10 `prompt.md` files and the 50 eval JSON files, and no `.env` or `docs/prompts`.
