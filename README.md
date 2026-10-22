@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 4 complete ([review](docs/reviews/week-04.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Next: hardening, the first measured baseline against a real model and the v0.1.0 release.
+> **Status:** Week 5 in progress (the [Week 4 review](docs/reviews/week-04.md) is done). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Code the agents run is now limited (CPU, memory, file size, output, process-group kill; see [docs/SECURITY.md](docs/SECURITY.md)). `agentforge doctor` checks an installation in one command. Next: the first measured baseline against a real model and the v0.1.0 release.
 
 ## Quick start (dev)
 
@@ -31,10 +31,13 @@ uv run agentforge agents run echo -i input.json --json      # full RunResult as 
 uv run agentforge runs list                                 # saved run history (needs AGENTFORGE_STORAGE__URL)
 uv run agentforge runs stats                                # per-agent runs, success rate, tokens and cost
 uv run agentforge llm ping                                  # check provider, key, tokens and cost
+uv run agentforge doctor                                    # is this install ready? (add --ping for a live model call)
 uv run agentforge config show                               # effective settings (keys shown as set/not set)
 uv run agentforge serve                                     # HTTP API on http://127.0.0.1:8000 (docs at /docs)
 uv run agentforge -v ...                                    # show info logs (quiet by default)
 ```
+
+`agentforge doctor` is the first thing to run on a new machine or after editing `.env`. It checks, offline, that the Python version and packages are right, that the configured model has its key and a known price (an unpriced model reports every cost as $0.00), that the run database opens, what the sandbox limits are, whether the API would be exposed without a key, that git and psql are present, that every agent has eval cases, and whether baselines are recorded. Warnings do not fail it; failures exit 1. `--ping` also sends one short request to the model.
 
 Results go to stdout and logs to stderr, so `--json` output can be piped into `jq`. Exit codes: `0` success, `1` the run failed, `2` bad input or usage. `python -m agentforge` works too.
 
@@ -91,7 +94,7 @@ The Code Review agent only trusts what it can check. Findings on files that aren
 
 The Bug Fix agent never hands back a patch it hasn't tried. Its patch is applied in memory to the real files (nothing is written to disk); if it doesn't apply, or changes nothing, the model gets the exact mismatch back and one chance to fix it, and `patch_applies` in the output tells you the result. Its 5 golden cases (division by zero, missing defaults, `None` from `re.match`, an off-by-one index and a `str` + `int` concatenation) are scored by applying the patch and running a small behaviour check in a separate Python process.
 
-The Test Generation agent only returns tests that have passed. It runs them with pytest and, on failure, sends pytest's output back to the model, up to `max_attempts` runs (default 3). The output includes the final run (tests, failures, coverage of the target) and the coverage from any existing tests you passed in. Tests run in a temporary directory with a separate `python -I`, a minimal environment (no API keys) and a timeout. That is careful, but it is not a sandbox: only run it on code you trust. Its 5 golden cases are scored on coverage and on **mutants**, small deliberate bugs the tests must catch, so tests that merely call the code do not pass.
+The Test Generation agent only returns tests that have passed. It runs them with pytest and, on failure, sends pytest's output back to the model, up to `max_attempts` runs (default 3). The output includes the final run (tests, failures, coverage of the target) and the coverage from any existing tests you passed in. Tests run in a temporary directory with a separate `python -I`, a minimal environment (no API keys), a timeout, and CPU, memory and file-size limits (Linux and macOS). That is careful, but it is not a sandbox: only run it on code you trust. Its 5 golden cases are scored on coverage and on **mutants**, small deliberate bugs the tests must catch, so tests that merely call the code do not pass.
 
 The Documentation agent cannot change your code: the model sends docstrings by name, AgentForge places them, and the syntax trees before and after must match apart from docstrings. Every public definition must end up documented, and each new docstring must pass a rubric (every parameter described, every exception the function raises named, a Returns or Yields section where needed, a one-line summary). `>>>` examples are run as doctests. Problems go back to the model up to twice. Its 5 golden cases cover all three styles, classes, generators and a partly documented module.
 
@@ -143,7 +146,7 @@ curl -X POST localhost:8000/agents/echo/run -H 'Content-Type: application/json' 
 
 `POST /agents/{name}/run` takes the agent's input as the body (the same JSON you pass to `agentforge agents run -d`) and always answers with the full `RunResult`. The status code says how the run went: `200` succeeded, `422` the input was invalid, `502` the model's answer never passed the agent's checks, `504` timeout, `500` any other failure; `404` for an unknown agent and `503` when the LLM provider is not configured. The `X-Run-Id` header carries the run id.
 
-**Agents run the code you send them** (tests, profile scripts), and that is not a sandbox, so this is not a public service. The defaults are deliberately strict:
+**Agents run the code you send them** (tests, profile scripts), and that is not a sandbox (it is limited, see [docs/SECURITY.md](docs/SECURITY.md)), so this is not a public service. The defaults are deliberately strict:
 
 - It listens on `127.0.0.1`. Another host (`--host 0.0.0.0`) is refused unless `AGENTFORGE_API__API_KEY` is set; callers then send `Authorization: Bearer <key>` on everything except `GET /health`.
 - `repo_path` is refused (`403`): send the code in `files`. To let callers name a folder on the server, set `AGENTFORGE_API__ALLOW_REPO_PATHS=true` **and** `AGENTFORGE_API__REPO_ROOT`; paths must then stay inside that folder.
@@ -347,6 +350,8 @@ Settings live in `src/agentforge/config.py` and are read from environment variab
 | `AGENTFORGE_API__API_KEY` | — | Bearer token for the API; required to listen on a non-loopback host |
 | `AGENTFORGE_API__ALLOW_REPO_PATHS` / `__REPO_ROOT` | `false` / — | Let callers use `repo_path`, only inside the root folder |
 | `AGENTFORGE_API__MAX_CONCURRENT_RUNS` / `__MAX_BODY_BYTES` | `4` / `5000000` | Limits on simultaneous runs and request size |
+| `AGENTFORGE_SANDBOX__ENABLED` | `true` | CPU, memory and file-size limits for code the agents run (Linux/macOS); see [docs/SECURITY.md](docs/SECURITY.md) |
+| `AGENTFORGE_SANDBOX__CPU_S` / `__MEMORY_MB` / `__FILE_MB` / `__OUTPUT_MB` | `120` / `2048` / `100` / `8` | The limits themselves |
 | `AGENTFORGE_STORAGE__URL` | — (history off) | `sqlite:///path.db` or `postgresql://user:password@host/db`; every run is saved there |
 | `AGENTFORGE_STORAGE__STORE_INPUTS` | `true` | Keep each run's input next to its output |
 | `ANTHROPIC_API_KEY` | — | Anthropic key (`AGENTFORGE_ANTHROPIC_API_KEY` also works) |
@@ -368,6 +373,8 @@ with run_context():
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Agent catalog](docs/AGENTS.md)
+- [Changelog](CHANGELOG.md)
+- [Security notes](docs/SECURITY.md): what runs model-written code and how it is limited
 - [Architecture decision records](docs/adr/)
 
 ## Roadmap

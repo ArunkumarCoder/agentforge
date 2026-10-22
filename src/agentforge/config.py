@@ -97,6 +97,20 @@ class ApiSettings(BaseModel):
         return self.host in {"127.0.0.1", "localhost", "::1"}
 
 
+class SandboxSettings(BaseModel):
+    """Limits for code the agents run (generated tests, profile scripts, SQLAlchemy models).
+
+    Applied on Linux and macOS; ignored on Windows. This is not a container: the code can
+    still read files the AgentForge user can read and use the network.
+    """
+
+    enabled: bool = True
+    cpu_s: int = Field(default=120, ge=1)  # CPU seconds
+    memory_mb: int = Field(default=2048, ge=64)  # address space
+    file_mb: int = Field(default=100, ge=1)  # largest file the code may write
+    output_mb: int = Field(default=8, ge=1, le=256)  # captured stdout / stderr, each
+
+
 class StorageSettings(BaseModel):
     """Run history. Off unless a database URL is set (SQLite file or PostgreSQL)."""
 
@@ -125,6 +139,7 @@ class Settings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     api: ApiSettings = Field(default_factory=ApiSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
+    sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
 
     # Provider keys accept the providers' standard variable names as well.
     anthropic_api_key: SecretStr | None = Field(

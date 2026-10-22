@@ -6,7 +6,14 @@ from collections.abc import Mapping, Sequence
 
 from agentforge.tools.builtin.files import ListFilesTool, ReadFileTool, SearchTextTool
 from agentforge.tools.builtin.http import HttpFetchTool, html_to_text, is_public_address
-from agentforge.tools.builtin.process import GitDiffTool, ProcessResult, RunCommandTool, run_process
+from agentforge.tools.builtin.process import (
+    GitDiffTool,
+    Limits,
+    ProcessResult,
+    RunCommandTool,
+    run_process,
+    with_limits,
+)
 from agentforge.tools.builtin.workspace import Workspace, WorkspaceError
 from agentforge.tools.registry import ToolRegistry
 
@@ -36,6 +43,7 @@ def workspace_tools(
 __all__ = [
     "GitDiffTool",
     "HttpFetchTool",
+    "Limits",
     "ListFilesTool",
     "ProcessResult",
     "ReadFileTool",
@@ -46,5 +54,6 @@ __all__ = [
     "html_to_text",
     "is_public_address",
     "run_process",
+    "with_limits",
     "workspace_tools",
 ]

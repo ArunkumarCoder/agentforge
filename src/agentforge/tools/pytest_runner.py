@@ -2,14 +2,15 @@
 
 Used by the Test Generation agent (generated tests) and the Documentation agent
 (doctests). The code is written by a model, so they run with some care, though this is
-not a sandbox (containers come later):
+not a sandbox (see docs/SECURITY.md):
 
 - a fresh temporary directory; nothing is written to the user's project,
   and ``sys.dont_write_bytecode`` keeps ``__pycache__`` out of it too,
 - a separate, isolated interpreter (``python -I``): no user site-packages,
   no ``PYTHON*`` variables, no script directory on ``sys.path``,
 - a minimal environment, so API keys and other secrets are not visible,
-- a timeout, after which the process is killed.
+- a timeout, after which the process and its children are killed,
+- CPU, memory and file-size limits and an output cap (``agentforge.tools.sandbox``).
 
 pytest's own config files in the project are ignored (``-c`` points at an
 empty ini), so the run behaves the same everywhere. Coverage uses the
@@ -31,6 +32,7 @@ from pydantic import Field
 
 from agentforge.core.schemas import Contract
 from agentforge.tools.builtin.process import run_process
+from agentforge.tools.sandbox import untrusted_limits
 
 
 class PytestRun(Contract):
@@ -206,6 +208,7 @@ async def run_pytest(
             timeout_s=timeout_s,
             env=safe_env(),
             inherit_env=False,
+            limits=untrusted_limits(),
         )
         output = _tail(f"{proc.stdout}\n{proc.stderr}".replace(str(project) + os.sep, ""))
         if proc.timed_out:

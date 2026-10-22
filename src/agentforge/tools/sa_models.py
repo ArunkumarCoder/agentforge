@@ -18,6 +18,7 @@ from pathlib import Path
 
 from agentforge.tools.builtin.process import run_process
 from agentforge.tools.pytest_runner import safe_env
+from agentforge.tools.sandbox import untrusted_limits
 from agentforge.tools.sql_schema import Schema, base_type
 
 TIMEOUT_S = 30.0
@@ -71,6 +72,7 @@ async def introspect(source: str) -> dict[str, ModelTable]:
             timeout_s=TIMEOUT_S,
             env=safe_env(),
             inherit_env=False,
+            limits=untrusted_limits(),
         )
     if result.timed_out:
         raise ModelsError(f"importing the models took longer than {TIMEOUT_S:.0f}s")

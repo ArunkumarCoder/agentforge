@@ -14,6 +14,7 @@
     agentforge runs prune --days 30 [--yes]
     agentforge llm ping [--prompt "..."]
     agentforge config show
+    agentforge doctor [--ping] [--json] [--baseline-dir DIR]
     agentforge serve [--host 127.0.0.1] [--port 8000]
 
 Results go to stdout (pretty by default, ``--json`` for scripts); logs go to
@@ -45,6 +46,7 @@ from agentforge import __version__
 from agentforge.config import LLMProvider, LogFormat, Settings, get_settings
 from agentforge.core.registry import UnknownAgentError, registry
 from agentforge.core.schemas import Message, RunStatus
+from agentforge.doctor import Status, diagnose, exit_code
 from agentforge.evals import (
     Baseline,
     BaselineError,
@@ -748,6 +750,49 @@ def _public_settings(settings: Settings) -> dict[str, Any]:
     data["api"]["api_key"] = "set" if settings.api.api_key else "not set"
     data["storage"]["url"] = _masked_url(settings)
     return data
+
+
+@app.command("doctor")
+def doctor(
+    ping: Annotated[
+        bool, typer.Option("--ping", help="Also send one short request to the configured model.")
+    ] = False,
+    baseline_dir: Annotated[
+        Path, typer.Option("--baseline-dir", help="Where the eval baselines live.")
+    ] = DEFAULT_BASELINE_DIR,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON instead of a table.")] = False,
+) -> None:
+    """Check that this installation is ready: runtime, model, database, limits, API, baselines.
+
+    Exit 1 if anything fails; warnings do not fail it. Offline unless ``--ping`` is given.
+    """
+    findings = asyncio.run(diagnose(get_settings(), ping=ping, baseline_dir=baseline_dir))
+    if as_json:
+        _print_json([f.model_dump(mode="json") for f in findings])
+    else:
+        style = {
+            Status.OK: "[green]ok[/]",
+            Status.WARN: "[yellow]warn[/]",
+            Status.FAIL: "[red]FAIL[/]",
+        }
+        table = Table(title="agentforge doctor", title_justify="left")
+        table.add_column("Area", style="bold cyan", no_wrap=True)
+        table.add_column("Check", no_wrap=True)
+        table.add_column("", no_wrap=True)
+        table.add_column("Detail")
+        for f in findings:
+            table.add_row(f.area, f.name, style[f.status], escape(f.detail))
+        out.print(table)
+        for f in findings:
+            if f.status is not Status.OK and f.hint:
+                out.print(f"[dim]{escape(f.area)}/{escape(f.name)}:[/] {escape(f.hint)}")
+        counts = {s: sum(f.status is s for f in findings) for s in Status}
+        out.print(
+            f"{counts[Status.OK]} ok · {counts[Status.WARN]} warning(s) · "
+            f"{counts[Status.FAIL]} failure(s)"
+        )
+    if exit_code(findings):
+        raise typer.Exit(EXIT_RUN_FAILED)
 
 
 def _masked_url(settings: Settings) -> str:

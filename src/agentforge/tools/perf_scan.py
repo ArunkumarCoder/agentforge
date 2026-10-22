@@ -25,6 +25,7 @@ from pathlib import Path
 from agentforge.tools.builtin.process import run_process
 from agentforge.tools.pytest_runner import safe_env
 from agentforge.tools.python_ast import cyclomatic_complexity, definitions
+from agentforge.tools.sandbox import untrusted_limits
 
 PROFILE_TIMEOUT_S = 60.0
 MIN_SHARE = 0.05
@@ -376,6 +377,7 @@ async def profile(
             timeout_s=timeout_s,
             env=safe_env(),
             inherit_env=False,
+            limits=untrusted_limits(),
         )
         if result.timed_out:
             raise PerfScanError(f"the profile script ran longer than {timeout_s:.0f}s")

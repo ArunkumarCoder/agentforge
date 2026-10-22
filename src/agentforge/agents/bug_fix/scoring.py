@@ -29,7 +29,9 @@ from pydantic import Field
 from agentforge.agents.bug_fix.schema import BugFixInput, BugFixOutput
 from agentforge.core.schemas import Contract
 from agentforge.evals.scoring import CaseScore, Check
+from agentforge.tools.builtin.process import with_limits
 from agentforge.tools.patching import PatchError, apply_patch
+from agentforge.tools.sandbox import untrusted_limits
 
 CHECK_TIMEOUT_S = 20.0
 
@@ -75,7 +77,7 @@ def run_check(files: Mapping[str, str], check: str) -> tuple[bool, str]:
         script.write_text(f"import sys\nsys.path.insert(0, {str(root)!r})\n{check}", "utf-8")
         try:
             proc = subprocess.run(  # noqa: S603 - our interpreter, our generated script
-                [sys.executable, "-I", str(script)],
+                with_limits([sys.executable, "-I", str(script)], untrusted_limits()),
                 cwd=root,
                 capture_output=True,
                 text=True,
