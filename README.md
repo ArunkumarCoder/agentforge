@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 5 in progress (the [Week 4 review](docs/reviews/week-04.md) is done). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Code the agents run is now limited (CPU, memory, file size, output, process-group kill; see [docs/SECURITY.md](docs/SECURITY.md)). `agentforge doctor` checks an installation in one command. Next: the first measured baseline against a real model and the v0.1.0 release.
+> **Status:** Week 5 complete ([review](docs/reviews/week-05.md); release checklist in [docs/RELEASE.md](docs/RELEASE.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Code the agents run is now limited (CPU, memory, file size, output, process-group kill; see [docs/SECURITY.md](docs/SECURITY.md)). `agentforge doctor` checks an installation in one command. Next: the first measured baseline against a real model and the v0.1.0 release.
 
 ## Quick start (dev)
 
@@ -373,7 +373,7 @@ with run_context():
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Agent catalog](docs/AGENTS.md)
-- [Changelog](CHANGELOG.md)
+- [Changelog](CHANGELOG.md) and [release checklist](docs/RELEASE.md)
 - [Security notes](docs/SECURITY.md): what runs model-written code and how it is limited
 - [Architecture decision records](docs/adr/)
 

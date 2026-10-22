@@ -158,7 +158,7 @@ Steps 4a and 4b run in parallel.
 ## 9. Open questions
 
 - [ ] Default model per provider for development (cost vs. quality)?
-- [ ] Code sandbox: subprocess with resource limits, or a Docker container per run?
+- [x] Code sandbox: subprocess with resource limits, or a Docker container per run? Resource limits now, containers later: [ADR-0004](adr/0004-sandbox-limits-not-containers.md).
 - [ ] Tracing backend: Langfuse or Arize Phoenix?
 - [ ] Web search provider for the Research agent: Tavily, Brave or SerpAPI?
 
