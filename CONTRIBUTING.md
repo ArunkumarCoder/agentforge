@@ -18,12 +18,13 @@ No `make` (e.g. on Windows)? Run the commands shown in the `Makefile` directly, 
 |---|---|
 | `make fmt` | Format and auto-fix lint issues |
 | `make lint` | Check formatting and lint without changing files |
-| `make type` | mypy in strict mode |
+| `make type` | mypy in strict mode, for Linux and for Windows (`--platform win32`) |
 | `make test` | Run tests |
 | `make test-live` | Live LLM smoke tests (needs a key; costs a few cents) |
 | `make eval` | Every agent's golden cases against the configured model (costs tokens) |
 | `make cov` | Tests with coverage (fails under 80%) |
-| `make check` | Everything CI runs |
+| `make package` | Build the wheel and sdist, inspect them, install the wheel in a clean venv and run it |
+| `make check` | Lint, types and tests with coverage (CI also runs `make package`) |
 
 ## Project conventions
 

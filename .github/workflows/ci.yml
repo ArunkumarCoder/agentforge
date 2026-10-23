@@ -50,6 +50,9 @@ jobs:
       - name: Mypy (strict)
         run: uv run mypy
 
+      - name: Mypy (strict, as Windows)
+        run: uv run mypy --platform win32
+
       - name: Pre-commit hooks (whitespace, YAML/TOML, secrets)
         run: uv run pre-commit run --all-files --show-diff-on-failure
 
@@ -118,6 +121,7 @@ jobs:
           --health-retries 10
     env:
       AGENTFORGE_CHECK_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      AGENTFORGE_CHECK_STORAGE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v7
 
@@ -130,3 +134,20 @@ jobs:
 
       - name: Run the integration tests against a real server
         run: uv run pytest -m integration --no-cov
+
+  package:
+    name: Package builds, installs and runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build, inspect, install into a clean venv and run the CLI
+        run: uv run python scripts/check_package.py

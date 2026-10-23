@@ -35,13 +35,10 @@ Also confirm CI is green on Linux and Windows for the release commit.
 ## 4. Build and test the package on its own
 
 ```bash
-rm -rf dist && uv build
-uv venv --python 3.12 /tmp/release-check && uv pip install --python /tmp/release-check/bin/python dist/*.whl
-cd "$(mktemp -d)" && /tmp/release-check/bin/agentforge --version && /tmp/release-check/bin/agentforge doctor
-/tmp/release-check/bin/agentforge agents run echo --example
+make package          # uv run python scripts/check_package.py
 ```
 
-The wheel must contain the 10 `prompt.md` files and the 50 eval JSON files, and no `.env` or `docs/prompts`.
+It builds the wheel and sdist, checks that every prompt and eval file is inside the wheel and that no `.env`, `docs/prompts`, cache or coverage file is in either, installs the wheel into a fresh virtual environment and, from an empty folder with no AgentForge settings or API keys in the environment, runs `--version`, `agents list`, `eval list`, `agents run echo --example`, `agents example`, `config show` and `doctor`. It exits 1 and lists the problems if anything is wrong. The same check runs in CI as the `package` job. Add `--keep` to leave the built files and the venv in place for a look.
 
 ## 5. Tag and publish
 

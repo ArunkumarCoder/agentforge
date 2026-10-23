@@ -29,6 +29,7 @@ Everything below is what v0.1.0 (target: 30 October 2026) will contain. The vers
 - Sandbox limits for model-written code (CPU, memory, file size, output cap, process-group kill) and `docs/SECURITY.md`.
 - `agentforge agents example` and `agents run --example`: a ready-made, tested input for every agent, taken from its golden eval cases.
 - `agentforge doctor`: one command that checks the runtime, model, price table, database, limits, API exposure, tools, agents and baselines, with an optional live `--ping`.
+- `scripts/check_package.py` (`make package`, and a `package` job in CI): builds the wheel and sdist, checks their contents, installs the wheel into a clean environment and runs the CLI from an empty folder. CI also type-checks as Windows (`mypy --platform win32`) and runs the PostgreSQL run-store test.
 
 ### Known limitations
 
