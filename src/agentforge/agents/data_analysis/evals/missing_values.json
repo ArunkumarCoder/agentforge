@@ -1,0 +1,26 @@
+{
+  "name": "missing_values",
+  "description": "Blank readings: the mean must ignore them, and the number of blanks is asked for too.",
+  "input": {
+    "question": "What is the mean temperature of sensor B, ignoring missing readings, and how many readings are missing in total?",
+    "files": {
+      "sensors.csv": "sensor,hour,temp_c\nA,0,13.2\nA,1,14.2\nA,2,\nA,3,19.8\nA,4,12.7\nA,5,\nA,6,16.9\nA,7,20.0\nB,0,22.4\nB,1,\nB,2,17.5\nB,3,18.7\nB,4,\nB,5,\nB,6,23.6\nB,7,16.4\nC,0,13.6\nC,1,\nC,2,14.1\nC,3,16.4\nC,4,\nC,5,14.4\nC,6,12.0\nC,7,15.8\n"
+    }
+  },
+  "expect": {
+    "numbers": [
+      {
+        "name": "mean temperature of sensor B",
+        "value": 19.72,
+        "tol": 0.01
+      },
+      {
+        "name": "missing readings",
+        "value": 7,
+        "tol": 0
+      }
+    ],
+    "words": [],
+    "charts_min": 0
+  }
+}

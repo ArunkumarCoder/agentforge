@@ -28,6 +28,7 @@ from agentforge.core.schemas import Contract, Message
 from agentforge.evals import BaselineError, all_suites, load_baseline
 from agentforge.llm import LLMError, LLMRequest, PriceTable, create_provider
 from agentforge.storage import StorageError, open_store
+from agentforge.tools.pyexec import network_namespace_available
 
 MIN_PYTHON = (3, 12)
 IS_WINDOWS = sys.platform == "win32"
@@ -201,6 +202,30 @@ def check_sandbox(settings: Settings) -> list[Finding]:
     ]
 
 
+def check_analysis() -> list[Finding]:
+    """What the Data Analysis agent needs: pandas, matplotlib, and how the network is cut off."""
+    missing = [m for m in ("pandas", "matplotlib") if importlib.util.find_spec(m) is None]
+    if missing:
+        return [
+            _warn(
+                "analysis",
+                "packages",
+                "missing: " + ", ".join(missing) + " (the data-analysis agent cannot run)",
+                "uv sync --extra analysis   (or pip install 'agentforge[analysis]')",
+            )
+        ]
+    if not network_namespace_available():
+        return [
+            _warn(
+                "analysis",
+                "network",
+                "pandas found; code is kept off the network by a blocked socket module only",
+                "on Linux, allow unprivileged user namespaces for a real network cut-off",
+            )
+        ]
+    return [_ok("analysis", "network", "pandas found; analysis code runs with no network at all")]
+
+
 def check_api(settings: Settings) -> list[Finding]:
     api = settings.api
     findings: list[Finding] = []
@@ -325,6 +350,7 @@ async def diagnose(
         ("llm", lambda: check_llm(settings)),
         ("storage", lambda: check_storage(settings)),
         ("sandbox", lambda: check_sandbox(settings)),
+        ("analysis", check_analysis),
         ("api", lambda: check_api(settings)),
         ("tools", check_tools),
         ("agents", check_agents),

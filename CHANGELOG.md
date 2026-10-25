@@ -7,6 +7,8 @@ All notable changes to AgentForge are listed here. The format follows [Keep a Ch
 ### Added
 
 - **Research agent (agent 11)**: answers from documents, fetched pages and, with a Brave Search key, web search, with numbered citations. An answer is accepted only if every `[n]` has a citation, every citation names a source that was really provided or fetched, and every quote appears word for word in that source's text (as the model saw it, after any truncation). The model gets two corrections; when the sources do not answer, the right result is `confidence: none` with no citations.
+- **Data Analysis agent (agent 12)**: answers questions about CSV/JSON data by writing pandas code. Scripts run in a throw-away folder with a time limit, the sandbox memory/CPU/file limits and **no network** (an empty network namespace on Linux where allowed, plus a blocked `socket` module everywhere). The final script is run again from scratch; the report is accepted only if every finding's value equals an emitted value, its sentence states the number, and every declared chart is a real PNG. Two corrections, then the run fails. Needs `uv sync --extra analysis` (pandas, matplotlib); `agentforge doctor` checks for them.
+- `run_python` tool (`agentforge.tools.pyexec`) and five golden cases with traps in the data (cancelled orders, blank readings, a join with an orphan row); expected numbers computed with pandas.
 - `fetch_page` and `web_search` tools (`agentforge.tools.web`); `AGENTFORGE_RESEARCH__*` settings; five golden cases (including a page that tries to hijack the agent and a question the documents cannot answer).
 
 ## [0.1.0] - 2026-10-30

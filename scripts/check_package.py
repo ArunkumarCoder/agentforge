@@ -41,8 +41,8 @@ FORBIDDEN = (
     "junit.xml",
     "coverage.xml",
 )
-EXPECTED_AGENTS = 12  # eleven real agents and echo
-EXPECTED_SUITES = 11
+EXPECTED_AGENTS = 13  # twelve real agents and echo
+EXPECTED_SUITES = 12
 EXPECTED_CASES_PER_SUITE = 5
 SECRET_ENV_PREFIXES = ("AGENTFORGE_",)
 SECRET_ENV_NAMES = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}

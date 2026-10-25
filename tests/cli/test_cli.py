@@ -118,7 +118,7 @@ class TestRun:
         assert result.exit_code == EXIT_USAGE
         message = " ".join(result.stderr.split())  # Rich wraps long lines at the terminal width
         assert (
-            "available: api-design, bug-fix, code-review, db-schema, doc-gen, "
+            "available: api-design, bug-fix, code-review, data-analysis, db-schema, doc-gen, "
             "echo, migration, performance, refactor, research, security-audit, test-gen" in message
         )
 
@@ -230,6 +230,7 @@ class TestEval:
             "api-design",
             "bug-fix",
             "code-review",
+            "data-analysis",
             "db-schema",
             "doc-gen",
             "migration",

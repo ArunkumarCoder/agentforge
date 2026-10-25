@@ -1,0 +1,23 @@
+{
+  "name": "top_region",
+  "description": "Revenue is units times price, so the region with the most units is not necessarily the top region.",
+  "input": {
+    "question": "Which region has the highest total revenue (units times unit_price), and what is that revenue?",
+    "files": {
+      "sales.csv": "region,product,units,unit_price\nnorth,widget,33,5.04\nnorth,widget,22,4.98\nnorth,widget,16,10.08\nnorth,gadget,17,15.35\nnorth,gadget,27,15.77\nnorth,gadget,19,6.16\nnorth,gizmo,20,11.82\nnorth,gizmo,43,18.95\nnorth,gizmo,11,17.0\nsouth,widget,41,18.29\nsouth,widget,37,20.32\nsouth,widget,39,16.3\nsouth,gadget,39,11.59\nsouth,gadget,25,20.68\nsouth,gadget,25,5.72\nsouth,gizmo,29,15.03\nsouth,gizmo,31,19.32\nsouth,gizmo,28,16.79\neast,widget,13,6.48\neast,widget,35,7.46\neast,widget,30,7.19\neast,gadget,40,12.86\neast,gadget,13,20.06\neast,gadget,29,11.14\neast,gizmo,31,16.48\neast,gizmo,38,5.44\neast,gizmo,14,23.84\nwest,widget,37,18.64\nwest,widget,11,5.27\nwest,widget,26,17.59\nwest,gadget,35,9.98\nwest,gadget,31,22.63\nwest,gadget,29,4.47\nwest,gizmo,36,11.46\nwest,gizmo,14,14.37\nwest,gizmo,20,20.13\n"
+    }
+  },
+  "expect": {
+    "numbers": [
+      {
+        "name": "top region revenue",
+        "value": 4754.35,
+        "tol": 0.5
+      }
+    ],
+    "words": [
+      "south"
+    ],
+    "charts_min": 0
+  }
+}

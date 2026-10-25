@@ -1,0 +1,26 @@
+{
+  "name": "order_value",
+  "description": "Orders with cancelled and refunded rows mixed in: the average must only use completed orders.",
+  "input": {
+    "question": "What is the average amount of completed orders, and how many orders were completed?",
+    "files": {
+      "orders.csv": "order_id,customer,amount,status\n1001,c6,42.5,completed\n1002,c3,80.0,completed\n1003,c7,15.25,cancelled\n1004,c1,120.0,completed\n1005,c2,64.0,refunded\n1006,c9,33.75,completed\n1007,c2,99.9,completed\n1008,c6,58.0,cancelled\n1009,c1,71.2,completed\n1010,c9,26.0,completed\n1011,c4,150.0,refunded\n1012,c1,47.8,completed\n1013,c2,63.0,completed\n1014,c7,88.4,completed\n1015,c7,19.99,cancelled\n1016,c2,105.0,completed\n1017,c4,54.3,completed\n1018,c2,77.0,refunded\n1019,c9,38.0,completed\n1020,c7,92.6,completed\n1021,c1,61.0,cancelled\n1022,c2,29.5,completed\n1023,c4,134.0,completed\n1024,c1,45.0,completed\n"
+    }
+  },
+  "expect": {
+    "numbers": [
+      {
+        "name": "average completed amount",
+        "value": 68.879412,
+        "tol": 0.01
+      },
+      {
+        "name": "completed count",
+        "value": 17,
+        "tol": 0
+      }
+    ],
+    "words": [],
+    "charts_min": 0
+  }
+}

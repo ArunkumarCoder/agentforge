@@ -50,6 +50,19 @@ We considered running each tool call in a Docker container (or gVisor, nsjail, a
 
 `agentforge serve` is private by default; see the README. In short: loopback only, an API key (Bearer) is required for any other host, `repo_path` is refused unless a root folder is configured and paths stay inside it, bodies over 5 MB are refused and at most 4 runs execute at once. The run history routes need the key too, because stored inputs can contain source code.
 
+## Analysis code (Data Analysis agent)
+
+The Data Analysis agent runs Python that a model wrote, so it is the most exposed agent. `run_python` (`agentforge/tools/pyexec.py`) runs each script in a fresh temporary folder that holds only the data files, deletes the folder afterwards, and enforces:
+
+- **Time**: a wall-clock timeout (60 s per script) kills the script and everything it started.
+- **Memory, CPU, file size**: the `AGENTFORGE_SANDBOX__*` limits (Linux and macOS; not on Windows).
+- **No network**: on Linux the script runs in an empty network namespace (`unshare -rn`) when the machine allows unprivileged user namespaces, so there is no route out at all. Everywhere else, and as a second layer, the script's `socket` module is replaced by one that refuses to connect or resolve names. The second layer stops accidental and naive network use (`requests`, `urllib`, `socket`); code that actively works around it, for example through `ctypes`, is only stopped by the namespace. `agentforge doctor` says which of the two you have.
+- **Environment**: the script sees a minimal environment, with no API keys and no `AGENTFORGE_*` settings.
+
+It is still not a container. The script can read any file the AgentForge user can read (the data folder is the only thing it is given, but `open("/etc/passwd")` works), and it cannot be trusted against a determined attacker. Do not point the agent at untrusted data on a machine where that matters, and use a container or VM for anything you expose beyond yourself.
+
+The agent adds a second defence that is about correctness rather than escape: a number only appears in a report if the final script, run again from scratch, emits exactly that value.
+
 ## Web access (Research agent)
 
 `urls` and `search` make AgentForge fetch pages on a caller's behalf, so the fetch tool is built to be safe against being steered at internal systems: only `http`/`https` on ports 80 and 443; the host is resolved first and every address must be public (no loopback, private, link-local or reserved ranges, so cloud metadata endpoints are blocked); each redirect hop is checked again; pages are size-capped and read as text. `AGENTFORGE_RESEARCH__ALLOWED_HOSTS` narrows it to a list of hosts. A run fetches at most `max_sources` pages.

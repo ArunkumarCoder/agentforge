@@ -1,0 +1,22 @@
+{
+  "name": "gold_spend",
+  "description": "Two files to join; one order belongs to a customer who is not in the customer list.",
+  "input": {
+    "question": "What is the total amount spent by customers in the gold tier?",
+    "files": {
+      "customers.csv": "id,name,tier\n1,Ana,gold\n2,Ben,silver\n3,Cleo,gold\n4,Dev,bronze\n5,Eli,gold\n6,Fay,silver\n",
+      "orders.csv": "customer_id,amount\n1,120.5\n2,60.0\n3,75.25\n1,30.0\n5,200.0\n4,15.0\n3,44.75\n9,500.0\n5,80.0\n6,90.0\n1,55.5\n3,12.0\n"
+    }
+  },
+  "expect": {
+    "numbers": [
+      {
+        "name": "gold tier total",
+        "value": 618.0,
+        "tol": 0.01
+      }
+    ],
+    "words": [],
+    "charts_min": 0
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "growth_rate",
+  "description": "Month over month growth for the latest month as a percentage, with a line chart.",
+  "input": {
+    "question": "By what percentage did revenue grow from the previous month to the latest month? Also draw a line chart of revenue by month.",
+    "files": {
+      "monthly.csv": "month,revenue\n2026-01,12000\n2026-02,12800\n2026-03,12100\n2026-04,13500\n2026-05,14250\n2026-06,13900\n2026-07,15100\n2026-08,16300\n"
+    }
+  },
+  "expect": {
+    "numbers": [
+      {
+        "name": "growth percent",
+        "value": 7.94702,
+        "tol": 0.01
+      }
+    ],
+    "words": [],
+    "charts_min": 1
+  }
+}

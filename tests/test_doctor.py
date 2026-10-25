@@ -175,7 +175,7 @@ def test_tools(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_agents_and_their_suites(monkeypatch: pytest.MonkeyPatch) -> None:
     registry_check, suites_check = doctor.check_agents()
     assert registry_check.status is Status.OK
-    assert "12 agents (11 use a model)" in registry_check.detail
+    assert "13 agents (12 use a model)" in registry_check.detail
     assert suites_check.status is Status.OK
     monkeypatch.setattr(doctor, "all_suites", lambda: {"code-review": object()})
     _, partial = doctor.check_agents()
@@ -205,13 +205,13 @@ def test_baselines_none_some_all_and_broken(tmp_path: Path) -> None:
     write_baseline(folder, "code-review")
     (some,) = doctor.check_baselines(settings(), folder)
     assert some.status is Status.WARN
-    assert "1/11 recorded" in some.detail
+    assert "1/12 recorded" in some.detail
     assert "bug-fix" in some.detail
     for agent in all_suites():
         write_baseline(folder, agent)
     (everything,) = doctor.check_baselines(settings(), folder)
     assert everything.status is Status.OK
-    assert "all 11 recorded (openai/m1, 2026-10-23)" in everything.detail
+    assert "all 12 recorded (openai/m1, 2026-10-23)" in everything.detail
     (folder / "bug-fix.json").write_text("{nope", encoding="utf-8")
     (broken,) = doctor.check_baselines(settings(), folder)
     assert broken.status is Status.FAIL
@@ -237,6 +237,7 @@ async def test_diagnose_covers_every_area(tmp_path: Path) -> None:
         "llm",
         "storage",
         "sandbox",
+        "analysis",
         "api",
         "tools",
         "agents",
@@ -295,3 +296,26 @@ def test_ping_with_the_fake_provider_is_skipped_not_called() -> None:
     result = runner.invoke(app, ["doctor", "--ping"])
     assert result.exit_code == 0
     assert "skipped: the fake provider" in " ".join(result.stdout.split())
+
+
+def test_analysis_needs_pandas_and_reports_how_the_network_is_cut_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(doctor, "network_namespace_available", lambda: True)
+    (ok,) = doctor.check_analysis()
+    assert ok.status is Status.OK
+    assert "no network at all" in ok.detail
+    monkeypatch.setattr(doctor, "network_namespace_available", lambda: False)
+    (guard,) = doctor.check_analysis()
+    assert guard.status is Status.WARN
+    assert "socket module" in guard.detail
+    real_find_spec = doctor.importlib.util.find_spec
+    monkeypatch.setattr(
+        doctor.importlib.util,
+        "find_spec",
+        lambda name: None if name == "pandas" else real_find_spec(name),
+    )
+    (missing,) = doctor.check_analysis()
+    assert missing.status is Status.WARN
+    assert "pandas" in missing.detail
+    assert "--extra analysis" in missing.hint
