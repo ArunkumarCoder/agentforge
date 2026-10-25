@@ -1,6 +1,6 @@
 [project]
 name = "agentforge"
-version = "0.0.1"
+version = "0.1.0"
 description = "A 25-agent AI engineering platform with a multi-agent orchestrator"
 readme = "README.md"
 requires-python = ">=3.12"

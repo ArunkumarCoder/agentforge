@@ -1,0 +1,28 @@
+{
+  "name": "release_notes",
+  "description": "Two short documents; the answer is in one of them, the other is a distraction.",
+  "input": {
+    "question": "In which Loomstack version was retry backoff added, and what is the default maximum delay?",
+    "sources": {
+      "changelog.md": "# Loomstack changelog\n\n## 2.4.0\n\nAdded jittered retry backoff for failed jobs. The default maximum delay is 300 seconds.\n\n## 2.3.0\n\nAdded the loomctl command line tool.\n\n## 2.2.0\n\nDropped support for Python 3.9.\n",
+      "faq.md": "# FAQ\n\nHow do I run workers?\nStart them with loomctl worker.\n\nWhere is the data kept?\nIn the folder named by LOOMSTACK_HOME.\n"
+    }
+  },
+  "expect": {
+    "answerable": true,
+    "must_cite": [
+      "changelog.md"
+    ],
+    "facts": [
+      [
+        "2.4.0"
+      ],
+      [
+        "300 seconds",
+        "300s",
+        "300 s"
+      ]
+    ],
+    "forbidden": []
+  }
+}

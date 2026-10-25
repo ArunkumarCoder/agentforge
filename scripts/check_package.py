@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import zipfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -40,8 +41,8 @@ FORBIDDEN = (
     "junit.xml",
     "coverage.xml",
 )
-EXPECTED_AGENTS = 11  # ten engineering agents and echo
-EXPECTED_SUITES = 10
+EXPECTED_AGENTS = 12  # eleven real agents and echo
+EXPECTED_SUITES = 11
 EXPECTED_CASES_PER_SUITE = 5
 SECRET_ENV_PREFIXES = ("AGENTFORGE_",)
 SECRET_ENV_NAMES = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
@@ -94,6 +95,12 @@ def _forbidden(names: Sequence[str], what: str) -> list[str]:
         ):
             bad.append(f"{what} contains {name}")
     return bad
+
+
+def project_version(root: Path = ROOT) -> str:
+    """The version declared in ``pyproject.toml``."""
+    with (root / "pyproject.toml").open("rb") as handle:
+        return str(tomllib.load(handle)["project"]["version"])
 
 
 def clean_environment() -> dict[str, str]:
@@ -176,8 +183,11 @@ def smoke(python: Path, workdir: Path) -> list[str]:
             return None
 
     version = cli("--version")
-    if version.returncode != 0 or not version.stdout.startswith("agentforge "):
-        problems.append(f"--version: {version.stdout or version.stderr}")
+    expected = f"agentforge {project_version()}"
+    if version.returncode != 0 or version.stdout.strip() != expected:
+        problems.append(
+            f"--version: expected '{expected}', got '{version.stdout or version.stderr}'"
+        )
 
     agents = json_of(cli("agents", "list", "--json"), "agents list")
     if isinstance(agents, list) and len(agents) != EXPECTED_AGENTS:

@@ -7,7 +7,7 @@
 
 A 25-agent AI engineering platform with a multi-agent orchestrator. Give it one business requirement and it runs the right agents (Business Analyst → Product → Planner → API → Database → Security → QA → Docs) to produce a finished deliverable.
 
-> **Status:** Week 5 complete ([review](docs/reviews/week-05.md); release checklist in [docs/RELEASE.md](docs/RELEASE.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Code the agents run is now limited (CPU, memory, file size, output, process-group kill; see [docs/SECURITY.md](docs/SECURITY.md)). `agentforge doctor` checks an installation in one command, and `make package` proves the built wheel installs and runs on its own. Next: the first measured baseline against a real model and the v0.1.0 release.
+> **Status:** v0.1.0 ([changelog](CHANGELOG.md)). Week 5 complete ([review](docs/reviews/week-05.md); release checklist in [docs/RELEASE.md](docs/RELEASE.md)). Ten real agents are in, so the engineering agents are complete: **Code Review**, **Bug Fix**, **Test Generation**, **Documentation**, **Refactoring**, **API Design**, **Database Schema**, **Security Audit**, **Performance** and now **Migration**, each checked against reality (patches are applied, tests are run, syntax trees are compared, specs are validated, DDL is parsed by PostgreSQL's own parser, every claimed vulnerability must quote real code, hotspots are measured with cProfile, migrations must keep the tests green) rather than trusted. `agentforge eval run` scores their golden cases. Underneath: config, logging, `BaseAgent`, four LLM providers with cost tracking and caching, typed tools, built-in workspace/git/command/HTTP tools, the tool-calling loop and the agent registry. An **HTTP API** now serves all of them (`agentforge serve`). Run history (SQLite or PostgreSQL) and eval baselines with regression checks are in. Code the agents run is now limited (CPU, memory, file size, output, process-group kill; see [docs/SECURITY.md](docs/SECURITY.md)). `agentforge doctor` checks an installation in one command, and `make package` proves the built wheel installs and runs on its own. Week 6 has started with agent 11, **Research** (answers with citations that are checked against the pages it really read). Next: the first measured baseline against a real model, then tag `v0.1.0` (steps in [docs/RELEASE.md](docs/RELEASE.md)).
 
 ## Quick start (dev)
 
@@ -61,6 +61,7 @@ On Windows PowerShell, quote JSON like this: `-d '{\"text\": \"hi\"}'`, or put i
 | 8 | Security Audit | `security-audit` | Runs bandit and a secrets scanner, then has the model triage every finding (real or false positive, real severity, concrete fix) and add what scanners miss; each addition must quote the code, and the report is merged, de-duplicated and sorted by risk |
 | 9 | Performance | `performance` | Scans Python for slow patterns (list lookups in loops, `+=` on strings, a query per iteration, `pop(0)`, nested loops), optionally profiles a script with cProfile, and has the model triage every candidate with a fix; the report is ranked by impact and measured share of run time, and names the bottleneck |
 | 10 | Migration | `migration` | Brings Python code up to 3.12: finds deprecated and removed APIs (typing generics, `utcnow`, `collections` ABCs, unittest aliases, `imp`, `getargspec` ...), plans the steps, rewrites the files, and only returns them if every site is gone, the public API is unchanged and the tests pass |
+| 11 | Research | `research` | Answers a question from documents, web pages and (with a search key) web search, with numbered citations. Each citation must name a source that was really read and quote it word for word, or the answer is sent back; if the sources do not say, it answers `confidence: none` instead of guessing |
 
 ```bash
 # review your own uncommitted changes (needs a real provider in .env)
@@ -68,6 +69,10 @@ uv run agentforge agents run code-review -d '{"repo_path": ".", "base": "HEAD"}'
 
 # diagnose an error in this repo (put the traceback in error.json: {"error": "...", "repo_path": "."})
 uv run agentforge agents run bug-fix -i error.json
+
+# answer from your own documents or pages, with checked citations (no key needed)
+uv run agentforge agents run research -d '{"question": "What is the rate limit?", "urls": ["https://example.com/docs/limits"]}'
+# add "search": true (and AGENTFORGE_RESEARCH__SEARCH_API_KEY) to let it search the web
 
 # write tests for one module of this repo (tests are run in a temp dir; nothing is written here)
 uv run agentforge agents run test-gen -d '{"repo_path": ".", "target": "src/agentforge/tools/patching.py"}'
@@ -356,6 +361,8 @@ Settings live in `src/agentforge/config.py` and are read from environment variab
 | `AGENTFORGE_API__MAX_CONCURRENT_RUNS` / `__MAX_BODY_BYTES` | `4` / `5000000` | Limits on simultaneous runs and request size |
 | `AGENTFORGE_SANDBOX__ENABLED` | `true` | CPU, memory and file-size limits for code the agents run (Linux/macOS); see [docs/SECURITY.md](docs/SECURITY.md) |
 | `AGENTFORGE_SANDBOX__CPU_S` / `__MEMORY_MB` / `__FILE_MB` / `__OUTPUT_MB` | `120` / `2048` / `100` / `8` | The limits themselves |
+| `AGENTFORGE_RESEARCH__SEARCH_API_KEY` | — (search off) | Brave Search API token for the Research agent's `search`; fetching given `urls` needs no key |
+| `AGENTFORGE_RESEARCH__ALLOWED_HOSTS` / `__SEARCH_RESULTS` / `__MAX_PAGE_BYTES` | any public host / `8` / `300000` | Limit which hosts pages may be fetched from, results per search, and page size |
 | `AGENTFORGE_STORAGE__URL` | — (history off) | `sqlite:///path.db` or `postgresql://user:password@host/db`; every run is saved there |
 | `AGENTFORGE_STORAGE__STORE_INPUTS` | `true` | Keep each run's input next to its output |
 | `ANTHROPIC_API_KEY` | — | Anthropic key (`AGENTFORGE_ANTHROPIC_API_KEY` also works) |

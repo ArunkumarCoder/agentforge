@@ -28,7 +28,7 @@ Also confirm CI is green on Linux and Windows for the release commit.
 
 ## 3. Version and notes
 
-- Set the version in `pyproject.toml` and `src/agentforge/__init__.py` (they must match: `agentforge --version`).
+- Set the version in `pyproject.toml` and `src/agentforge/__init__.py` (they must match; a test and `make package` both check it), then run `uv lock` so `uv.lock` carries the same version.
 - In `CHANGELOG.md`, rename `[Unreleased]` to the version and date, add a fresh empty `[Unreleased]` above it, and replace "no baselines" under known limitations with the recorded pass rate and the model.
 - Update the README status line.
 

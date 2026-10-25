@@ -1,0 +1,20 @@
+{
+  "name": "not_in_sources",
+  "description": "The question is about something the only document never mentions: the right answer is that the sources do not say.",
+  "input": {
+    "question": "Which cloud providers does Loomstack officially support?",
+    "sources": {
+      "readme.md": "# Loomstack\n\nLoomstack is a job queue for Python. It stores jobs in SQLite and runs workers as separate processes.\n"
+    }
+  },
+  "expect": {
+    "answerable": false,
+    "must_cite": [],
+    "facts": [],
+    "forbidden": [
+      "AWS",
+      "Azure",
+      "Google Cloud"
+    ]
+  }
+}

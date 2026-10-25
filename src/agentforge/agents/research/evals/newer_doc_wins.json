@@ -1,0 +1,23 @@
+{
+  "name": "newer_doc_wins",
+  "description": "Two versions of a guide disagree; the newer one says it replaces the older limit.",
+  "input": {
+    "question": "What is the current Loomstack API rate limit per key?",
+    "sources": {
+      "guide-2023.md": "# Loomstack guide (March 2023)\n\nThe API rate limit is 100 requests per minute per key.\n",
+      "guide-2025.md": "# Loomstack guide (June 2025)\n\nThe API rate limit is 600 requests per minute per key. This replaces the earlier limit of 100 requests per minute.\n"
+    }
+  },
+  "expect": {
+    "answerable": true,
+    "must_cite": [
+      "guide-2025.md"
+    ],
+    "facts": [
+      [
+        "600"
+      ]
+    ],
+    "forbidden": []
+  }
+}

@@ -111,6 +111,21 @@ class SandboxSettings(BaseModel):
     output_mb: int = Field(default=8, ge=1, le=256)  # captured stdout / stderr, each
 
 
+class ResearchSettings(BaseModel):
+    """Web access for the Research agent. Search is off until a key is set; pages can be
+    fetched without one."""
+
+    search_api_key: SecretStr | None = None  # Brave Search API subscription token
+    search_results: int = Field(default=8, ge=1, le=20)
+    allowed_hosts: list[str] | None = None  # only fetch pages from these hosts (None: any public)
+    max_page_bytes: int = Field(default=300_000, ge=10_000, le=5_000_000)
+
+    @field_validator("search_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+
 class StorageSettings(BaseModel):
     """Run history. Off unless a database URL is set (SQLite file or PostgreSQL)."""
 
@@ -140,6 +155,7 @@ class Settings(BaseSettings):
     api: ApiSettings = Field(default_factory=ApiSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     sandbox: SandboxSettings = Field(default_factory=SandboxSettings)
+    research: ResearchSettings = Field(default_factory=ResearchSettings)
 
     # Provider keys accept the providers' standard variable names as well.
     anthropic_api_key: SecretStr | None = Field(

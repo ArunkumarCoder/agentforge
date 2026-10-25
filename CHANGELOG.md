@@ -4,7 +4,14 @@ All notable changes to AgentForge are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
-Everything below is what v0.1.0 (target: 30 October 2026) will contain. The version number in the code is still `0.0.1` until the release commit.
+### Added
+
+- **Research agent (agent 11)**: answers from documents, fetched pages and, with a Brave Search key, web search, with numbered citations. An answer is accepted only if every `[n]` has a citation, every citation names a source that was really provided or fetched, and every quote appears word for word in that source's text (as the model saw it, after any truncation). The model gets two corrections; when the sources do not answer, the right result is `confidence: none` with no citations.
+- `fetch_page` and `web_search` tools (`agentforge.tools.web`); `AGENTFORGE_RESEARCH__*` settings; five golden cases (including a page that tries to hijack the agent and a question the documents cannot answer).
+
+## [0.1.0] - 2026-10-30
+
+First release: ten engineering agents, each checked against reality, with an evaluation harness, a run history, an HTTP API, sandbox limits and a package that is built and tested on its own in CI.
 
 ### Added
 
@@ -33,7 +40,7 @@ Everything below is what v0.1.0 (target: 30 October 2026) will contain. The vers
 
 ### Known limitations
 
-- No agent has been scored against a real model yet, so there are no recorded baselines. Recording them is the first job of release week.
+- No agent has been scored against a real model yet, so no baselines are recorded and `eval run` cannot flag regressions until they are (`docs/RELEASE.md` step 1; needs an API key). The deterministic scorers and the fake-provider tests are what v0.1.0 was checked with.
 - The sandbox limits are a safety net, not isolation; see `docs/SECURITY.md`. They are not applied on Windows.
 - Run history has no migrations yet, and tool-call traces are not stored.
 - The agents are Python-centric apart from API Design and Database Schema.

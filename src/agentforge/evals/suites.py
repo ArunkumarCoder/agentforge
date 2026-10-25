@@ -43,6 +43,7 @@ def all_suites() -> dict[str, Suite]:
     from agentforge.agents.migration import scoring as migration
     from agentforge.agents.performance import scoring as performance
     from agentforge.agents.refactor import scoring as refactor
+    from agentforge.agents.research import scoring as research
     from agentforge.agents.security_audit import scoring as security_audit
     from agentforge.agents.test_gen import scoring as test_gen
 
@@ -56,6 +57,7 @@ def all_suites() -> dict[str, Suite]:
         Suite("migration", migration.load_cases, lambda c: c.migration_input(), migration.score),
         Suite("performance", performance.load_cases, lambda c: c.perf_input(), performance.score),
         Suite("refactor", refactor.load_cases, lambda c: c.refactor_input(), refactor.score),
+        Suite("research", research.load_cases, lambda c: c.research_input(), research.score),
         Suite(
             "security-audit",
             security_audit.load_cases,

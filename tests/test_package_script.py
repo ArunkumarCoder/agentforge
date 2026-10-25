@@ -101,3 +101,9 @@ def test_clean_environment_drops_settings_and_keys(
     assert env["KEEP_ME"] == "1"
     assert not [k for k in env if k.startswith("AGENTFORGE_")]
     assert "ANTHROPIC_API_KEY" not in env and "OPENAI_API_KEY" not in env
+
+
+def test_project_version_reads_pyproject(script: ModuleType, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\nversion = "1.2.3"\n')
+    assert script.project_version(tmp_path) == "1.2.3"
+    assert script.project_version() == script.project_version(SCRIPT.parent.parent)

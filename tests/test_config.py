@@ -121,3 +121,18 @@ def test_storage_url_comes_from_the_environment_and_stays_secret(
     assert s.storage.url.get_secret_value() == "postgresql://u:pw@h/db"
     assert "pw" not in repr(s)
     assert s.storage.store_inputs is False
+
+
+def test_research_search_is_off_by_default_and_the_key_stays_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert Settings(_env_file=None).research.search_api_key is None  # type: ignore[call-arg]
+    blank = Settings(_env_file=None, research={"search_api_key": "  "})  # type: ignore[call-arg, arg-type]
+    assert blank.research.search_api_key is None
+    monkeypatch.setenv("AGENTFORGE_RESEARCH__SEARCH_API_KEY", "brave-token-value")
+    monkeypatch.setenv("AGENTFORGE_RESEARCH__ALLOWED_HOSTS", '["docs.example.com"]')
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.research.search_api_key is not None
+    assert s.research.search_api_key.get_secret_value() == "brave-token-value"
+    assert "brave-token-value" not in repr(s)
+    assert s.research.allowed_hosts == ["docs.example.com"]

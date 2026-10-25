@@ -1,0 +1,27 @@
+{
+  "name": "combine_two_sources",
+  "description": "The answer needs both documents: one says which plan has 10 workers, the other what that plan costs.",
+  "input": {
+    "question": "How much does the Loomstack plan with 10 workers cost per month?",
+    "sources": {
+      "plans.md": "# Plans\n\nThe Starter plan includes 2 workers. The Pro plan includes 10 workers.\n",
+      "billing.md": "# Billing\n\nThe Pro plan costs 120 dollars per month. Starter is free.\n"
+    }
+  },
+  "expect": {
+    "answerable": true,
+    "must_cite": [
+      "plans.md",
+      "billing.md"
+    ],
+    "facts": [
+      [
+        "120"
+      ],
+      [
+        "Pro"
+      ]
+    ],
+    "forbidden": []
+  }
+}

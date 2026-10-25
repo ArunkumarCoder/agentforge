@@ -119,7 +119,7 @@ class TestRun:
         message = " ".join(result.stderr.split())  # Rich wraps long lines at the terminal width
         assert (
             "available: api-design, bug-fix, code-review, db-schema, doc-gen, "
-            "echo, migration, performance, refactor, security-audit, test-gen" in message
+            "echo, migration, performance, refactor, research, security-audit, test-gen" in message
         )
 
     def test_default_input_is_empty_object(self) -> None:
@@ -172,6 +172,13 @@ class TestLlmAndConfig:
         assert data["openai_api_key"] == "not set"
         assert data["llm"]["provider"] == "fake"
         assert "sk-ant-very-secret" not in result.stdout
+
+    def test_config_show_masks_the_search_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AGENTFORGE_RESEARCH__SEARCH_API_KEY", "brave-very-secret")
+        result = runner.invoke(app, ["config", "show"])
+        assert result.exit_code == 0
+        assert "brave-very-secret" not in result.stdout
+        assert json.loads(result.stdout)["research"]["search_results"] == 8
 
 
 def test_python_dash_m_entry_point() -> None:
@@ -228,6 +235,7 @@ class TestEval:
             "migration",
             "performance",
             "refactor",
+            "research",
             "security-audit",
             "test-gen",
         }

@@ -50,6 +50,14 @@ We considered running each tool call in a Docker container (or gVisor, nsjail, a
 
 `agentforge serve` is private by default; see the README. In short: loopback only, an API key (Bearer) is required for any other host, `repo_path` is refused unless a root folder is configured and paths stay inside it, bodies over 5 MB are refused and at most 4 runs execute at once. The run history routes need the key too, because stored inputs can contain source code.
 
+## Web access (Research agent)
+
+`urls` and `search` make AgentForge fetch pages on a caller's behalf, so the fetch tool is built to be safe against being steered at internal systems: only `http`/`https` on ports 80 and 443; the host is resolved first and every address must be public (no loopback, private, link-local or reserved ranges, so cloud metadata endpoints are blocked); each redirect hop is checked again; pages are size-capped and read as text. `AGENTFORGE_RESEARCH__ALLOWED_HOSTS` narrows it to a list of hosts. A run fetches at most `max_sources` pages.
+
+Pages are **untrusted text**. The prompt tells the model to treat them as data and never as instructions, and a golden eval case plants a hijacking instruction in a page. The structural defence is the citation check: an answer is only accepted if each quote appears in a page the run really read, and the model has no tool that writes, sends or changes anything. A page can still push an answer around (a wrong but quoted claim is still quoted), which is why citations are shown with the answer. If you expose the API beyond one machine, remember that a caller with the key can make the server fetch public URLs; set the allow-list.
+
+Search results are sent to Brave with your token and the model's query text; do not enable `search` for questions that must not leave the machine.
+
 ## Secrets
 
 - Child processes for untrusted code get a **minimal environment**: `PATH`, temp and locale variables. Provider API keys and `AGENTFORGE_*` settings are not passed on.
