@@ -31,21 +31,21 @@ agentforge = "agentforge.cli.main:app"
 # Needed by the Data Analysis agent: the code it writes runs in a child process that imports these.
 analysis = [
     "matplotlib>=3.9",
-    "pandas>=2.2",
+    "pandas>=3.1.1",
 ]
 
 [dependency-groups]
 dev = [
     "matplotlib>=3.9",
-    "pandas>=2.2",
+    "pandas>=3.1.1",
     "httpx>=0.28.1",
-    "mypy>=2.3.1",
-    "pre-commit>=4.6.2",
-    "pytest>=8",
-    "pytest-asyncio>=1.4.0",
+    "mypy>=2.4.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
     "pytest-cov>=5",
-    "ruff>=0.16.9",
-    "types-pyyaml>=6.0.12.20260906",
+    "ruff>=0.17.4",
+    "types-pyyaml>=6.0.12.20261103",
 ]
 
 [build-system]
